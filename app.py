@@ -17,8 +17,19 @@ def getDistricts():
     query = { 'district': { '$geoIntersects': { '$geometry': {
         'type': 'Point', 'coordinates': [ float(lon), float(lat) ]}}}}
 
-    districts = mongo.db.districts.find(query)
-    return ")]}',\n" + json.dumps([ d for d in districts ])
+    districts = [ d for d in mongo.db.districts.find(query) ]
+    for (idx, d) in enumerate(districts):
+        betterCommittees = []
+        for c in d['committees']:
+            betterData = mongo.db.committees.find_one({'_id': c['committee']})
+            betterData['rank'] = c['rank']
+            betterCommittees.append(betterData)
+        districts[idx]['committees'] = betterCommittees
+
+    updateQuery = { '_id': { '$in': [ d['_id'] for d in districts ] }}
+    mongo.db.districts.update_many(updateQuery, { '$inc': { 'searches': 1 }})
+
+    return ")]}',\n" + json.dumps(districts)
 
 @app.route('/api/topics.json', methods=['GET'])
 def getTopics():
@@ -31,10 +42,13 @@ def getTopics():
 @app.route('/api/inbound')
 def inbound():
     resp = twiml.Response()
+    phoneNumber = request.args.get('PhoneNumber')
+    addressHash = request.args.get('AddressHash')
+    district = mongo.db.districts.find_one({'phone': phoneNumber})
+
     with resp.dial(callerId=app.config['TWILIO_OUTGOING_NUMBER']) as dial:
-        phoneNumber = request.args.get('PhoneNumber')
-        district = mongo.db.districts.find_one({'phone': phoneNumber})
         if district:
+            mongo.db.districts.update_one({'_id': district['_id']}, { '$inc': { 'calls': 1 }})
             parsed = phonenumbers.parse(phoneNumber, 'US')
             dial.timeLimit(900)
             dial.number(phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164))
