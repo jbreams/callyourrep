@@ -195,48 +195,46 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
 		on-place-changed="updateAddress();" />
 	  <div id="districtMapAndList" class="ng-hide">
   		<ng-map></ng-map>
-      <div ng-repeat="district in districtInfo">
-        <md-card>
-        <md-card-title>
-          <md-card-title-text>
-            <span class="md-headline">{{district.repName}}</span>
-            <span class="md-subhead">{{district.fullTitle}}</span>
-          </md-card-title-text>
-
-          <md-card-title-media>
-            <img class="md-media-sm card-media"
-              src="https://theunitedstates.io/images/congress/225x275/{{district.pictureId}}.jpg">
-          </md-card-title-media>
-        </md-card-title>
-        <md-card-actions layout="row">
-          <md-button ng-click="showCallerDlg($event, district, resolvedPlace);">
-            Call this Rep!
-          </md-button>
-        </md-card-actions>
-        <md-card-content>
-          <md-tabs md-dynamic-height>
-            <md-tab label="Bio">
-              <md-content class="md-padding">
-                <b>{{district.repName}}</b> {{district.bio}}
-              </md-content>
-            </md-tab>
-            <md-tab label="Committee Membership">
-              <md-content class="md-padding">
-                <ul>
-                  <li ng-repeat="committee in district.committees">
-                    <p><a href="{{committee.url}}">{{committee.name}}</a></p>
-                    <p ng-if="committee.jurisdiction">Jurisdiction: {{committee.jurisdiction}}</p>
-                    <p ng-if="committee.phone">Phone: {{committee.phone}}</p>
-                  </li>
-                </ul>
-              </md-content>
-            </md-tab>
-          </md-tabs>
-        </md-card-content>
-
-        </md-card>
-      </div>
-	  </div>
+      <md-list>
+        <md-list-item class="md-3-line md-long-text" ng-repeat="district in districtInfo">
+          <img class="md-avatar"
+              ng-src="https://theunitedstates.io/images/congress/225x275/{{district.pictureId}}.jpg">
+          <div class="md-list-item-text" layout="column">
+            <span layout="row">
+              <span layout="column">
+                <span class="md-headline">{{district.repName}}</span>
+                <span class="md-subhead">{{district.fullTitle}}</span>
+              </span>
+              <span flex></span>
+              <span>
+               <md-button layout-align="start end" class="md-primary md-raised"
+                 ng-click="showCallerDlg($event, district, resolvedPlace);">
+                Call this Rep!
+               </md-button>
+              </span>
+            </span>
+            <md-tabs md-dynamic-height>
+              <md-tab label="Bio">
+                <md-content class="md-padding">
+                  <b>{{district.repName}}</b> {{district.bio}}
+                </md-content>
+              </md-tab>
+              <md-tab label="Committee Membership">
+                <md-content class="md-padding">
+                  <ul>
+                    <li ng-repeat="committee in district.committees">
+                      <p><a href="{{committee.url}}">{{committee.name}}</a></p>
+                      <p ng-if="committee.jurisdiction">Jurisdiction: {{committee.jurisdiction}}</p>
+                      <p ng-if="committee.phone">Phone: {{committee.phone}}</p>
+                    </li>
+                  </ul>
+                </md-content>
+              </md-tab>
+            </md-tabs>
+          </div>
+        </md-list-item>
+      </md-list>
+    </div>
 	</div>
   </body>
 </html>
