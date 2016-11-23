@@ -5,26 +5,29 @@
   </div>
 </md-toolbar>
 <md-dialog-content layout="column">
+  <div layout-padding>
   <md-list>
     <md-subheader class="md-no-sticky">
       <h2>Need some inspiration?</h2>
       In case you aren't sure what to say on your call with {{district.repName}}, we've compiled
       some possible conversation topics below!
     </md-subheader>
-  <md-list-item ng-repeat="topic in topics" class="md-1-line md-long-text">
-    <div class="md-list-item-text">
-      <h3 ng-if="topic.title">{{topic.title}}</h3>
-      <p>{{topic.text}}</p>
-    </div>
-  </md-list-item>
+    <md-list-item ng-repeat="topic in topics" class="md-1-line md-long-text">
+      <div class="md-list-item-text">
+        <h3 ng-if="topic.title">{{topic.title}}</h3>
+        <p>{{topic.text}}</p>
+      </div>
+    </md-list-item>
   </md-list>
-  <md-content layout-padding>
   <h3>Don't take too long!</h3>
   <p>In order to make sure as many people can call their rep as possible, you can only call your
      reps for 15 minutes each per day. The counter below shows how much time you have left! Use
      it well!"</p>
   <h1 align=center>{{timer.mins}} minutes, {{timer.secs}} seconds</h1>
-  </md-content>
+    <h3>Be nice!!</h3>
+    <p>Remember that you're talking to a staff member or possibly even an intern whose job is to
+    answer phone calls! Please be respectful and polite!</p>
+  </div>
 </md-dialog-content>
 <md-dialog-actions layout="row">
   <md-button ng-click="toggleCall();">{{callButtonText}}</md-button>

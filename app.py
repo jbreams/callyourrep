@@ -46,12 +46,15 @@ def inbound():
     addressHash = request.args.get('AddressHash')
     district = mongo.db.districts.find_one({'phone': phoneNumber})
 
+    if not district:
+        resp.say("You are trying to call an unknown phone number")
+        return str(resp)
+
     with resp.dial(callerId=app.config['TWILIO_OUTGOING_NUMBER']) as dial:
-        if district:
-            mongo.db.districts.update_one({'_id': district['_id']}, { '$inc': { 'calls': 1 }})
-            parsed = phonenumbers.parse(phoneNumber, 'US')
-            dial.timeLimit(900)
-            dial.number(phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164))
+        mongo.db.districts.update_one({'_id': district['_id']}, { '$inc': { 'calls': 1 }})
+        parsed = phonenumbers.parse(phoneNumber, 'US')
+        dial.timeLimit(900)
+        dial.number(phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164))
 
     return str(resp)
 
