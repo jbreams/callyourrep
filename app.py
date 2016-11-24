@@ -17,7 +17,7 @@ def getDistricts():
     query = { 'district': { '$geoIntersects': { '$geometry': {
         'type': 'Point', 'coordinates': [ float(lon), float(lat) ]}}}}
 
-    districts = [ d for d in mongo.db.districts.find(query) ]
+    districts = [ d for d in mongo.db.districts.find(query).sort({_id: 1}) ]
     for (idx, d) in enumerate(districts):
         betterCommittees = []
         for c in d['committees']:
@@ -33,10 +33,9 @@ def getDistricts():
 
 @app.route('/api/topics.json', methods=['GET'])
 def getTopics():
-    districtId = str(request.args.get('district'))
-    query = { '$or': [ {'district': districtId }, {'district': { '$exists': False }}],
-        '$or': [ { 'expires': { '$exists': False } }, { 'expires': {'$lt': datetime.now()}} ] }
-    topics = mongo.db.topics.find(query, {'$_id': 0 })
+    search = str(request.args.get("search"))
+    topics = mongo.db.topics.find({ '$text': {
+        '$search': search, '$language': 'en', '$caseSensitive': False}})
     return ")]}',\n" + json_util.dumps([ t for t in topics ])
 
 @app.route('/api/inbound')

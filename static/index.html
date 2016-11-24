@@ -114,21 +114,11 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
     });
   };
 
-  $scope.showCallerDlg = function(ev, district, loc) {
+  $scope.showCallerDlg = function showCallerDlg(ev, district, loc, topic) {
 		$mdDialog.show({
 			controller: function($scope, $mdDialog) {
 				$scope.callButtonText="Call them!";
-
-        $http({
-          method: 'GET',
-          params: { district: district._id },
-          url: '/api/topics.json'}).
-        then(function(resp) {
-          $scope.topics = resp.data;
-        },
-        function(error) {
-          console.log(error);
-        });
+        $scope.callscript = topic;
 
 				$scope.district = district;
 				$scope.timer = {
@@ -150,7 +140,6 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
 						}, 1000);
 
 						Twilio.Device.connect({PhoneNumber: district['phone'], Lock: CryptoJS.SHA1(loc)});
-
 						Twilio.Device.disconnect($scope.toggleCall);
 					} else {
 						$mdDialog.hide();
@@ -159,6 +148,13 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
 						}
 					}
 				}
+
+        $scope.nevermind = function() {
+          $mdDialog.hide();
+          if ($scope.countdownTimer) {
+            $interval.cancel($scope.countdownTimer);
+          }
+        }
 			},
 		  onRemoving: function(element, removePromise) {
 				Twilio.Device.disconnectAll();
@@ -171,12 +167,45 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
 		});
 	};
 
-  $scope.callARep = function(district) {
-	Twilio.Device.connect({ CallerId: "Outgoing", PhoneNumber: district['phone'] })
-  }
+  $scope.showTopicsDlg = function(ev, district, loc) {
+    var showCallerDlg = $scope.showCallerDlg;
+    $mdDialog.show({
+      controller: function($scope, $mdDialog) {
+        $scope.searchTerms = "";
+        $scope.topics = [];
+        $scope.getTopicId = function(o) {
+          console.log(o)
+          return o._id.$oid;
+        }
 
-  $scope.hangUp = function() {
-	Twilio.Device.disconnectAll();
+        $scope.updateList = function() {
+          $http({
+            method: 'GET',
+            params: { search: $scope.searchTerms },
+            url: '/api/topics.json'}).
+          then(function(resp) {
+            $scope.topics = resp.data;
+            console.log(resp.data);
+          },
+          function(error) {
+            console.log(error);
+          });
+          console.log($scope.searchTerms);
+        };
+
+        $scope.showDialer = function(script) {
+          $scope.topics = [];
+          $scope.searchTerms = "";
+          $mdDialog.hide();
+          showCallerDlg(ev, district, loc, script);
+        }
+      },
+      templateUrl: '/static/topics.html',
+      parent: angular.element(document.body),
+      targetEvent: ev,
+      clickOutsideToClose: true,
+      fullscreen: false,
+    });
   }
 });
 	</script>
@@ -208,7 +237,7 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
               <span flex></span>
               <span>
                <md-button layout-align="start end" class="md-primary md-raised"
-                 ng-click="showCallerDlg($event, district, resolvedPlace);">
+                 ng-click="showTopicsDlg($event, district, resolvedPlace);">
                 Call this Rep!
                </md-button>
               </span>
