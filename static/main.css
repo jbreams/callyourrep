@@ -1,0 +1,7 @@
+.content-wrapper {
+  max-width: 48rem;
+  padding: 0 1rem;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}

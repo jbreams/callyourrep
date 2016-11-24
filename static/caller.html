@@ -1,27 +1,27 @@
-<md-dialog>
-<md-toolbar>
-  <div class="md-toolbar-tools">
-    <h2>Calling {{district.repName}}...</h2>
-  </div>
-</md-toolbar>
-<md-dialog-content layout="column">
-  <div layout-padding>
-  <span ng-if="callscript">
-    <h3>Call script</h3>
-    <p>{{callscript}}</p>
-  </span>
-  <h3>Don't take too long!</h3>
-  <p>In order to make sure as many people can call their rep as possible, you can only call your
-     reps for 10 minutes each per day. The counter below shows how much time you have left! Use
-     it well!"</p>
-  <h1 align=center>{{timer.mins}} minutes, {{timer.secs}} seconds</h1>
-    <h3>Be nice!!</h3>
-    <p>Remember that you're talking to a staff member or possibly even an intern whose job is to
-    answer phone calls! Please be respectful and polite!</p>
-  </div>
-</md-dialog-content>
-<md-dialog-actions layout="row">
-  <md-button class="md-warn md-raised" ng-click="nevermind();">Cancel</md-button>
-  <md-button class="md-primary md-raised" ng-click="toggleCall();">{{callButtonText}}</md-button>
-</md-dialog-actions>
+<md-dialog flex="45">
+	<md-toolbar>
+		<div class="md-toolbar-tools">
+			<h2>Calling {{district.repName}}...</h2>
+		</div>
+	</md-toolbar>
+	<md-dialog-content layout="column">
+		<div layout-padding>
+			<span ng-if="callscript" layour-padding>
+				<h4>Call script</h4>
+				<p>{{callscript}}</p>
+			</span>
+			<h4>Don't take too long!</h4>
+			<p>In order to make sure as many people can call their rep as possible, you can only call your
+				reps for 10 minutes each per day. The counter below shows how much time you have left! Use
+				it well!</p>
+			<h1 align=center>{{timer.mins}} minutes, {{timer.secs}} seconds</h1>
+			<h4>Be nice!!</h4>
+			<p>Remember that you're talking to a staff member or possibly even an intern whose job is to
+				answer phone calls! Please be respectful and polite!</p>
+		</div>
+	</md-dialog-content>
+	<md-dialog-actions layout="row">
+		<md-button class="md-warn md-raised" ng-click="nevermind();">Cancel</md-button>
+		<md-button class="md-primary md-raised" ng-click="toggleCall();">{{callButtonText}}</md-button>
+	</md-dialog-actions>
 </md-dialog>
