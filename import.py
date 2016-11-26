@@ -19,7 +19,6 @@ committees = {}
 with open('committees-current.yaml', 'r') as yamlFp:
     rawCommittees = yaml.load(yamlFp)
     for committee in rawCommittees:
-        print committee
         committees[committee['thomas_id']] = {
             'name': committee['name'],
             'url': committee['url'],
@@ -110,6 +109,8 @@ def writeLegislators():
                 'fullTitle': fullTitle,
                 'phone': currentTerm.get("phone"),
                 'contactForm': currentTerm.get("contact_form"),
+                'mailingAddress': currentTerm.get("address"),
+                'fax': currentTerm.get('fax'),
                 'pictureId': rep["id"]["bioguide"],
                 'party': currentTerm.get("party"),
                 'type': currentTerm.get("type"),
@@ -121,7 +122,7 @@ def writeLegislators():
 
         print "Wrote {}".format(districtName)
 
-#writeLegislators()
+writeLegislators()
 committeesColl = db['committees']
 committeesColl.drop()
 for (idfield, data) in committees.items():

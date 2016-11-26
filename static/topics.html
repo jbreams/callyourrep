@@ -27,11 +27,20 @@
           ng-repeat="topic in topics track by getTopicId(topic)">
           <div class="md-list-item-text" layout="column">
             <p>{{topic.text}}</p>
-            <md-button class="md-raised" ng-click="showDialer(topic.text);">USe this script!</md-button>
+            <md-button class="md-raised md-primary"
+                       layout-align="center center"
+											 ng-click="showDialer(topic.text);">
+							Use this script!
+						</md-button>
           </div>
           <md-divider />
         </md-list-item>
       </md-list>
+			<span layout="row" layout-align="end end">
+				<md-button ng-click="nevermind();" class="md-raised">
+					Cancel
+				</md-button>
+		  </span>
       </div>
 			<div align=center>Want to add a new call script? Email us at
 				<a href="email:callscripts@callyourrep.us">callscripts@callyourrep.us</a></div>

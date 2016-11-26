@@ -1,14 +1,18 @@
 from flask import Flask, request, json
-from flask.ext.pymongo import PyMongo
+from flask.ext.pymongo import PyMongo, ASCENDING, DESCENDING
 from twilio.util import TwilioCapability
 from twilio import twiml
-from datetime import datetime
+from datetime import datetime, timedelta
 import phonenumbers
 from bson import json_util
+import pytz
 
 app = Flask(__name__)
+app.config.from_envvar('CALLYOURREP_SETTINGS', silent=True)
 app.config['MONGO_DBNAME'] = 'callyourrep'
 mongo = PyMongo(app)
+
+utc = pytz.utc
 
 @app.route('/api/districts.json', methods=['GET'])
 def getDistricts():
@@ -17,7 +21,7 @@ def getDistricts():
     query = { 'district': { '$geoIntersects': { '$geometry': {
         'type': 'Point', 'coordinates': [ float(lon), float(lat) ]}}}}
 
-    districts = [ d for d in mongo.db.districts.find(query).sort({_id: 1}) ]
+    districts = [ d for d in mongo.db.districts.find(query).sort('_id', ASCENDING) ]
     for (idx, d) in enumerate(districts):
         betterCommittees = []
         for c in d['committees']:
@@ -43,17 +47,31 @@ def inbound():
     resp = twiml.Response()
     phoneNumber = request.args.get('PhoneNumber')
     addressHash = request.args.get('AddressHash')
-    district = mongo.db.districts.find_one({'phone': phoneNumber})
+    callStatus = request.args.get('CallStatus')
 
+    district = mongo.db.districts.find_one({'phone': phoneNumber})
     if not district:
         resp.say("You are trying to call an unknown phone number")
         return str(resp)
 
-    with resp.dial(callerId=app.config['TWILIO_OUTGOING_NUMBER']) as dial:
-        mongo.db.districts.update_one({'_id': district['_id']}, { '$inc': { 'calls': 1 }})
-        parsed = phonenumbers.parse(phoneNumber, 'US')
-        dial.timeLimit(900)
-        dial.number(phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164))
+    parsedNumber = phonenumbers.format_number(phonenumbers.parse(district['phone'], 'US'),
+        phonenumbers.PhoneNumberFormat.E164)
+
+    lastCall = mongo.db.calls.find_one({'addressHash': addressHash,
+                                        'phoneNumber': parsedNumber})
+    now = datetime.now(utc)
+    if lastCall and lastCall['timestamp'] + timedelta(hours=24) > now:
+        resp.say("You have already called " + phoneNumber + " in the last 24 hours." +
+                 "Please try again tomorrow")
+        return str(resp)
+
+    resp.dial(number=parsedNumber,
+            callerId=app.config['TWILIO_OUTGOING_NUMBER'],
+            timeLimit=900)
+    mongo.db.districts.update_one({'_id': district['_id']}, { '$inc': { 'calls': 1 }})
+    mongo.db.calls.insert_one({'timestamp': now,
+                               'addressHash': addressHash,
+                               'phoneNumber': parsedNumber})
 
     return str(resp)
 

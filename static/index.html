@@ -29,13 +29,17 @@
 	  <h1>Call your rep!</h1>
 	  <p>Do you want to call your congress person, but don't know how? You've come to the right place!
 	  To find your representatives, just put in your address below, and we'll call them for you!</p>
+		<span layout="row">
 	  <input
 		places-auto-complete
 		ng-model="address"
 		component-restrictions="{country: 'us'}"
 		types="['address']"
 		on-place-changed="updateAddress();"
+		flex
 		/>
+		<md-button class="md-raised" ng-click="updateAddress();">Lookup your reps!</md-button>
+	  </span>
 	  <div id="districtMapAndList" class="ng-hide">
   		<ng-map></ng-map>
       <md-list>
@@ -51,7 +55,7 @@
               <span flex></span>
               <span>
                <md-button layout-align="start end" class="md-primary md-raised"
-                 ng-click="showTopicsDlg($event, district, resolvedPlace);">
+                 ng-click="showTopicsDlg($event, district, addressHash);">
                 Call this Rep!
                </md-button>
               </span>
@@ -71,6 +75,24 @@
                       <p ng-if="committee.phone">Phone: {{committee.phone}}</p>
                     </li>
                   </ul>
+                </md-content>
+              </md-tab>
+              <md-tab label="Contact Info">
+                <md-content class="md-padding">
+                  <p><strong>Phone number:</strong> <a href='tel:{{district.phone}}'>
+                    {{district.phone}}
+                  </a></p>
+                  <p ng-if="district.contactForm">
+                    <strong>Online contact form:</strong> 
+                      <a href='{{district.contactForm}}' target="_blank">
+                      {{district.contactForm}}
+                  </a></p>
+                  <p ng-if="district.fax">
+                    <strong>Fax number:</strong> {{district.fax}}
+                  </p>
+                  <p ng-if="district.mailingAddress">
+                    <strong>Mailing address:</strong> {{district.mailingAddress}}
+                  </p>
                 </md-content>
               </md-tab>
             </md-tabs>
@@ -123,6 +145,8 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
 
   $scope.updateAddress = function() {
     $scope.resolvedPlace = this.getPlace().geometry.location;
+		$scope.addressHash = CryptoJS.SHA1(this.getPlace().formattedAddress)
+
     NgMap.getMap().then(function(map) {
       if ($scope.marker) {
       $scope.marker.setMap(null);
@@ -138,7 +162,6 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
 
       var handleResp = function(response) {
       $scope.districtInfo = response.data;
-      console.log($scope.districtInfo);
       var bounds = new google.maps.LatLngBounds();
       response.data.forEach(function(district) {
         var feature = map.data.addGeoJson({
@@ -200,7 +223,7 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
 							$scope.timer.secs = $scope.timer.count % 60;
 						}, 1000);
 
-						Twilio.Device.connect({PhoneNumber: district['phone'], Lock: CryptoJS.SHA1(loc)});
+						Twilio.Device.connect({PhoneNumber: district['phone'], AddressHash: loc});
 						Twilio.Device.disconnect($scope.toggleCall);
 					} else {
 						$mdDialog.hide();
@@ -235,7 +258,6 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
         $scope.searchTerms = "";
         $scope.topics = [];
         $scope.getTopicId = function(o) {
-          console.log(o)
           return o._id.$oid;
         }
 
@@ -246,12 +268,10 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
             url: '/api/topics.json'}).
           then(function(resp) {
             $scope.topics = resp.data;
-            console.log(resp.data);
           },
           function(error) {
             console.log(error);
           });
-          console.log($scope.searchTerms);
         };
 
         $scope.showDialer = function(script) {
@@ -260,6 +280,12 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
           $mdDialog.hide();
           showCallerDlg(ev, district, loc, script);
         }
+
+				$scope.nevermind = function() {
+					$mdDialog.hide();
+					$scope.topics = [];
+					$scope.searchTerms = "";
+				}
       },
       templateUrl: '/static/topics.html',
       parent: angular.element(document.body),
