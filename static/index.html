@@ -26,7 +26,8 @@
   <body layout="column" ng-app="CallYourRep"
     ng-controller="CallYourRepCtrl" class="md-padding" ng-cloak>
 		<div class="content-wrapper" layout="column" layout-xs="column">
-	  <h1>Call your rep!</h1>
+    <img src="/static/header.svg" style="width: 100%; height: auto;">
+    <h1>Call Your Rep!</h1>
 	  <p>Do you want to call your congress person, but don't know how? You've come to the right place!
 	  To find your representatives, just put in your address below, and we'll call them for you!</p>
 		<span layout="row">
@@ -88,7 +89,7 @@
                       {{district.contactForm}}
                   </a></p>
                   <p ng-if="district.fax">
-                    <strong>Fax number:</strong> {{district.fax}}
+                    <strong>Fax number (because, why not?):</strong> {{district.fax}}
                   </p>
                   <p ng-if="district.mailingAddress">
                     <strong>Mailing address:</strong> {{district.mailingAddress}}
@@ -100,14 +101,19 @@
         </md-list-item>
       </md-list>
     </div>
+    <p align=center>Questions? Comments? Contact us at 
+      <a href='mailto:contact@callyourrep.us'>contact@callyourrep.us</a>
+    </p>
 </div>
+
   </body>
 	<script>
 'use strict';
 
 var module = angular.module('CallYourRep', ['ngMap', 'ngMaterial']);
 
-module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $interval) {
+module.controller('CallYourRepCtrl',
+    function($scope, $http, $mdDialog, NgMap, $interval, $anchorScroll, $location) {
   NgMap.getMap().then(function(map) {
 	map.data.setStyle(function(feature) {
 	  var color;
@@ -149,39 +155,40 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
 
     NgMap.getMap().then(function(map) {
       if ($scope.marker) {
-      $scope.marker.setMap(null);
+        $scope.marker.setMap(null);
       }
       $scope.marker = new google.maps.Marker({
-      position: $scope.resolvedPlace,
-      map: map,
+        position: $scope.resolvedPlace,
+        map: map,
       });
 
       map.data.forEach(function(feature) {
-      map.data.remove(feature);
+        map.data.remove(feature);
       });
 
       var handleResp = function(response) {
-      $scope.districtInfo = response.data;
-      var bounds = new google.maps.LatLngBounds();
-      response.data.forEach(function(district) {
-        var feature = map.data.addGeoJson({
-        type: "Feature",
-        geometry: district['district'],
-        properties: {
-          title: district['_id'],
-          party: district['party'],
-          type: district['type'],
-        },
-        })
-        feature[0].getGeometry().forEachLatLng(function(pt) {
-        bounds.extend(pt);
+        $scope.districtInfo = response.data;
+        var bounds = new google.maps.LatLngBounds();
+        response.data.forEach(function(district) {
+          var feature = map.data.addGeoJson({
+          type: "Feature",
+          geometry: district['district'],
+          properties: {
+            title: district['_id'],
+            party: district['party'],
+            type: district['type'],
+          },
+          })
+          feature[0].getGeometry().forEachLatLng(function(pt) {
+          bounds.extend(pt);
+          });
         });
-      });
 
-      document.getElementById("districtMapAndList").classList.remove("ng-hide");
-      google.maps.event.trigger(map,'resize')
-      map.setCenter(bounds.center);
-      map.fitBounds(bounds);
+        document.getElementById("districtMapAndList").classList.remove("ng-hide");
+        google.maps.event.trigger(map,'resize')
+        map.setCenter(bounds.center);
+        map.fitBounds(bounds);
+        $location.hash('districtMapAndList');
       }
 
       $http({
@@ -260,6 +267,17 @@ module.controller('CallYourRepCtrl', function($scope, $http, $mdDialog, NgMap, $
         $scope.getTopicId = function(o) {
           return o._id.$oid;
         }
+
+        $http({
+          method: 'GET',
+          url: '/api/topics.json'}).
+        then(function(resp) {
+          console.log(resp.data);
+          $scope.topics = resp.data;
+        },
+        function(error) {
+          console.log(error)
+        });
 
         $scope.updateList = function() {
           $http({

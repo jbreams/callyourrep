@@ -5,6 +5,7 @@ from twilio import twiml
 from datetime import datetime, timedelta
 import phonenumbers
 from bson import json_util
+from bson.objectid import ObjectId
 import pytz
 
 app = Flask(__name__)
@@ -37,10 +38,21 @@ def getDistricts():
 
 @app.route('/api/topics.json', methods=['GET'])
 def getTopics():
-    search = str(request.args.get("search"))
-    topics = mongo.db.topics.find({ '$text': {
-        '$search': search, '$language': 'en', '$caseSensitive': False}})
+    search = request.args.get("search")
+    print search
+    if not search:
+        print "searching for top topics"
+        topics = mongo.db.topics.find().sort('useCount', DESCENDING).limit(4)
+    else:
+        topics = mongo.db.topics.find({ '$text': {
+            '$search': str(search), '$language': 'en', '$caseSensitive': False}}).sort(
+                'useCount', DESCENDING)
     return ")]}',\n" + json_util.dumps([ t for t in topics ])
+
+@app.route('/api/useTopic', methods=['GET'])
+def useTopic():
+    topicID = ObjectId(request.args.get("topic"))
+    mongo.db.topics.update({'_id': topicId}, {'$inc': {'useCount': 1}})
 
 @app.route('/api/inbound')
 def inbound():

@@ -9,9 +9,9 @@
     </div>
   </md-toolbar>
   <md-dialog-content layout="column">
-    <div layout-padding>
+    <div class="md-padding">
       <p>You can search for topics to call about below. You can enter terms like "immigration"
-        or "Trump"</p>
+        or "gun control".</p>
       <span layout="row">
         <input type="text" placeholder="Search terms..."
           ng-model="searchTerms"
@@ -21,17 +21,22 @@
         />
       </span>
       <div>
-      <h3 ng-if="topics.length">Call scripts</h3>
+      <h4 ng-if="topics.length">Call scripts</h3>
       <md-list flex>
         <md-list-item class="md-long-text md-2-line"
           ng-repeat="topic in topics track by getTopicId(topic)">
           <div class="md-list-item-text" layout="column">
+            <md-content>
+            <h5 ng-if="topic.title">{{topic.title}}</h5>
             <p>{{topic.text}}</p>
+            <h6 ng-if="topic.takenFrom">Taken from: {{topic.takenFrom}}</h6>
+            <div layout="row" layout-align="center center">
             <md-button class="md-raised md-primary"
-                       layout-align="center center"
 											 ng-click="showDialer(topic.text);">
 							Use this script!
 						</md-button>
+            </md-content>
+            </div>
           </div>
           <md-divider />
         </md-list-item>
