@@ -24,8 +24,8 @@
 
   </head>
   <body layout="column" ng-app="CallYourRep"
-    ng-controller="CallYourRepCtrl" class="md-padding" ng-cloak>
-		<div class="content-wrapper" layout="column" layout-xs="column">
+    ng-controller="CallYourRepCtrl" ng-cloak>
+		<div class="content-wrapper" layout="column" layout-xs="column" layout-margins>
     <img src="/static/header.svg" style="width: 100%; height: auto;">
     <h1>Call Your Rep!</h1>
 	  <p>Do you want to call your congress person, but don't know how? You've come to the right place!
@@ -272,7 +272,6 @@ module.controller('CallYourRepCtrl',
           method: 'GET',
           url: '/api/topics.json'}).
         then(function(resp) {
-          console.log(resp.data);
           $scope.topics = resp.data;
         },
         function(error) {
