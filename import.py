@@ -3,6 +3,7 @@ import pymongo
 import requests
 from lxml import etree
 from StringIO import StringIO
+import os
 
 # Little lambda to get a prettified ordinal version of numbers for the "1st, 2nd, 3rd district"
 def getOrdinal(num):
@@ -48,8 +49,8 @@ with open('committee-membership-current.yaml', 'r') as yamlFp:
                     {'committee': committee, 'rank': getOrdinal(member['rank']) })
 
 
-client = pymongo.MongoClient('mongodb://localhost:27017')
-db = client['callyourrep']
+client = pymongo.MongoClient(os.environ.get("MONGODB_URI", "mongodb://localhost:27017/callyourrep"))
+db = client.get_default_database()
 
 def resolveDistrict(term):
     districtName = term["state"]

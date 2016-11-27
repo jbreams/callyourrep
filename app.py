@@ -15,7 +15,7 @@ for (k, v) in os.environ.items():
         app.config[k] = v
 
 app.config.from_envvar('CALLYOURREP_SETTINGS', silent=True)
-mongo = PyMongo(app)
+mongo = PyMongo(app, 'MONGODB')
 
 jinja_options = app.jinja_options.copy()
 
