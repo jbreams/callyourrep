@@ -149,6 +149,10 @@ module.controller('CallYourRepCtrl',
 	console.log(error);
   });
 
+  Twilio.Device.error(function(error) {
+    alert(error);
+  });
+
   $scope.updateAddress = function() {
     $scope.resolvedPlace = this.getPlace().geometry.location;
 		$scope.addressHash = CryptoJS.SHA1(this.getPlace().formattedAddress)
