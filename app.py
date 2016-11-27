@@ -1,4 +1,4 @@
-from flask import Flask, request, json
+from flask import Flask, request, json, render_template
 from flask.ext.pymongo import PyMongo, ASCENDING, DESCENDING
 from twilio.util import TwilioCapability
 from twilio import twiml
@@ -7,11 +7,28 @@ import phonenumbers
 from bson import json_util
 from bson.objectid import ObjectId
 import pytz
+import os
 
 app = Flask(__name__)
+for (k, v) in os.environ:
+    if k.startswith(('MONGODB_', 'TWILIO_', 'GOOGLE_')):
+        app.config[k] = v
+
 app.config.from_envvar('CALLYOURREP_SETTINGS', silent=True)
-app.config['MONGO_DBNAME'] = 'callyourrep'
 mongo = PyMongo(app)
+
+jinja_options = app.jinja_options.copy()
+
+jinja_options.update(dict(
+    block_start_string='<%',
+    block_end_string='%>',
+    variable_start_string='%%',
+    variable_end_string='%%',
+    comment_start_string='<#',
+    comment_end_string='#>'
+))
+app.jinja_options = jinja_options
+
 
 utc = pytz.utc
 
@@ -93,6 +110,9 @@ def token():
     ret = capability.generate()
     return ret
 
+@app.route('/')
+def index():
+    return render_template('index.html',  googleAPIKey=app.config['GOOGLE_API_KEY'])
 
 if __name__ == '__main__':
     app.run()
