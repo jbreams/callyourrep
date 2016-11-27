@@ -10,7 +10,7 @@ import pytz
 import os
 
 app = Flask(__name__)
-for (k, v) in os.environ:
+for (k, v) in os.environ.items():
     if k.startswith(('MONGODB_', 'TWILIO_', 'GOOGLE_')):
         app.config[k] = v
 
