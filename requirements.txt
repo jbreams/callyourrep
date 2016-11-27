@@ -1,0 +1,9 @@
+flask
+flask-pymongo
+gunicorn
+phonenumbers
+pymongo
+pytz
+pyyaml
+requests
+twilio

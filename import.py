@@ -1,7 +1,6 @@
 import yaml
 import pymongo
 import requests
-import geojson
 from lxml import etree
 from StringIO import StringIO
 

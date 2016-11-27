@@ -39,9 +39,7 @@ def getDistricts():
 @app.route('/api/topics.json', methods=['GET'])
 def getTopics():
     search = request.args.get("search")
-    print search
     if not search:
-        print "searching for top topics"
         topics = mongo.db.topics.find().sort('useCount', DESCENDING).limit(4)
     else:
         topics = mongo.db.topics.find({ '$text': {
