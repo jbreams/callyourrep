@@ -14,6 +14,10 @@ for (k, v) in os.environ.items():
     if k.startswith(('MONGODB_', 'TWILIO_', 'GOOGLE_')):
         app.config[k] = v
 
+from flask_sslify import SSLify
+if 'DYNO' in os.environ: # only trigger SSLify if the app is running on Heroku
+    sslify = SSLify(app)
+
 app.config.from_envvar('CALLYOURREP_SETTINGS', silent=True)
 mongo = PyMongo(app, 'MONGODB')
 

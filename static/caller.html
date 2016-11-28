@@ -6,6 +6,10 @@
 	</md-toolbar>
 	<md-dialog-content layout="column">
 		<div layout-padding>
+      <div ng-if="!supportsCalls">
+        <h3 class="ng-warn">Uh oh...</h3>
+        <p>It looks like your browser doesn't work with our phone provider. You can still call your rep though by calling <a href="tel:{{district.phone}}">{{district.phone}}</a></p>
+      </div>
 			<span ng-if="callscript" layout-padding>
 				<h4>Call script</h4>
 				<p>{{callscript}}</p>

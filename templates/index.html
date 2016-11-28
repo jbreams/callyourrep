@@ -149,10 +149,6 @@ module.controller('CallYourRepCtrl',
 	console.log(error);
   });
 
-  Twilio.Device.error(function(error) {
-    alert(error.message);
-  });
-
   $scope.updateAddress = function() {
     $scope.resolvedPlace = this.getPlace().geometry.location;
 		$scope.addressHash = CryptoJS.SHA1(this.getPlace().formattedAddress)
@@ -221,6 +217,15 @@ module.controller('CallYourRepCtrl',
 					mins: 10,
 					secs: 0
 				};
+
+        $scope.supportsCalls = true;
+        Twilio.Device.error(function(error) {
+          if (error.code == 31208) {
+            $scope.supportsCalls = false;
+          } else {
+            alert(error.message);
+          }
+        });
 
 				$scope.inCall = false;
 				$scope.toggleCall = function() {

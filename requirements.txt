@@ -1,5 +1,6 @@
 flask
 flask-pymongo
+flask-sslify
 gunicorn
 phonenumbers
 pymongo
