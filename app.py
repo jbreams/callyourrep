@@ -116,7 +116,9 @@ def token():
 
 @app.route('/')
 def index():
-    return render_template('index.html',  googleAPIKey=app.config['GOOGLE_API_KEY'])
+    return render_template('index.html',
+        googleAPIKey=app.config['GOOGLE_API_KEY'],
+        googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'])
 
 if __name__ == '__main__':
     app.run()
