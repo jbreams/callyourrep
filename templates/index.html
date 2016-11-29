@@ -32,17 +32,17 @@
 	  <p>Do you want to call your congress person, but don't know how? You've come to the right place!
 	  To find your representatives, just put in your address below, and we'll call them for you!</p>
 		<span layout="row">
-	  <input
-		places-auto-complete
-		ng-model="address"
-		component-restrictions="{country: 'us'}"
-		types="['address']"
-		on-place-changed="updateAddress();"
-		flex
-		/>
-		<md-button class="md-raised" ng-click="updateAddress();">Lookup your reps!</md-button>
+      <input
+      places-auto-complete
+      ng-model="address"
+      component-restrictions="{country: 'us'}"
+      types="['address']"
+      on-place-changed="updateAddress();"
+      flex
+      />
+      <md-button class="md-raised" ng-click="updateAddress();">Lookup your reps!</md-button>
 	  </span>
-	  <div id="districtMapAndList" class="ng-hide">
+	  <div id="districtMapAndList" layout="column" ng-hide="hideMap" ng-padding>
   		<ng-map></ng-map>
       <md-list>
         <md-list-item class="md-3-line md-long-text" ng-repeat="district in districtInfo">
@@ -115,33 +115,47 @@ var module = angular.module('CallYourRep', ['ngMap', 'ngMaterial']);
 
 module.controller('CallYourRepCtrl',
     function($scope, $http, $mdDialog, NgMap, $interval, $anchorScroll, $location) {
+  $scope.mapObserver = null;
+  $scope.bounds = new google.maps.LatLngBounds();
   NgMap.getMap().then(function(map) {
-	map.data.setStyle(function(feature) {
-	  var color;
-	  switch(feature.getProperty("party")) {
-		case "Democrat":
-		  color = "blue";
-		  break;
-		case "Republican":
-		  color = "red";
-		  break;
-		default:
-		  color = "black";
-	  }
+    map.data.setStyle(function(feature) {
+      var color;
+      switch(feature.getProperty("party")) {
+      case "Democrat":
+        color = "blue";
+        break;
+      case "Republican":
+        color = "red";
+        break;
+      default:
+        color = "black";
+      }
 
-	  var ret = {
-		strokeColor: color,
-		strokeOpacity: 0.50,
-		strokeWeight: 5,
-		fillOpacity: 0,
-		title: feature.getProperty('title'),
-	  }
-	  return ret;
-	});
+      var ret = {
+      strokeColor: color,
+      strokeOpacity: 0.50,
+      strokeWeight: 5,
+      fillOpacity: 0,
+      title: feature.getProperty('title'),
+      }
+      return ret;
+    });
+    var target = document.getElementById('districtMapAndList'); 
+    // create an observer instance
+    $scope.mapObserver = new MutationObserver(function(mutations) {
+      mutations.forEach(function(ev) {
+        google.maps.event.trigger(map,'resize');
+        map.setCenter($scope.bounds.center);
+        map.fitBounds($scope.bounds);
+      });
+    });
+    $scope.mapObserver.observe(target,
+        { attributes: true, childList: false, characterData: false });
   });
 
   $scope.marker = null;
   $scope.districtInfo = [];
+  $scope.hideMap = true;
 
   $http.get('/api/twilioToken').then(function(resp) {
 	Twilio.Device.setup(resp.data);
@@ -169,7 +183,7 @@ module.controller('CallYourRepCtrl',
 
       var handleResp = function(response) {
         $scope.districtInfo = response.data;
-        var bounds = new google.maps.LatLngBounds();
+        $scope.bounds = new google.maps.LatLngBounds();
         response.data.forEach(function(district) {
           var feature = map.data.addGeoJson({
           type: "Feature",
@@ -181,14 +195,11 @@ module.controller('CallYourRepCtrl',
           },
           })
           feature[0].getGeometry().forEachLatLng(function(pt) {
-          bounds.extend(pt);
+          $scope.bounds.extend(pt);
           });
         });
 
-        document.getElementById("districtMapAndList").classList.remove("ng-hide");
-        google.maps.event.trigger(map,'resize')
-        map.setCenter(bounds.center);
-        map.fitBounds(bounds);
+        $scope.hideMap = false;
         $location.hash('districtMapAndList');
       }
 
