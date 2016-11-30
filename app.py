@@ -98,7 +98,7 @@ def inbound():
 
     resp.dial(number=parsedNumber,
             callerId=app.config['TWILIO_OUTGOING_NUMBER'],
-            timeLimit=900)
+            timeLimit=1200)
     mongo.db.districts.update_one({'_id': district['_id']}, { '$inc': { 'calls': 1 }})
     mongo.db.calls.insert_one({'timestamp': now,
                                'addressHash': addressHash,
