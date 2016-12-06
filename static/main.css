@@ -5,3 +5,13 @@
   margin: 0 auto;
   box-sizing: border-box;
 }
+
+/* fix portrait */
+.md-avatar {
+ height: 50px; 
+}
+
+/* fix alignment for portrait */
+md-list-item.md-3-line>.md-avatar {
+    margin-top: 0px;
+}
