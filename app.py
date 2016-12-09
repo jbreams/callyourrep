@@ -55,7 +55,7 @@ def getDistricts():
     updateQuery = { '_id': { '$in': [ d['_id'] for d in districts ] }}
     mongo.db.districts.update_many(updateQuery, { '$inc': { 'searches': 1 }})
 
-    return ")]}',\n" + json.dumps(districts)
+    return json.dumps(districts)
 
 @app.route('/api/topics.json', methods=['GET'])
 def getTopics():
@@ -66,12 +66,7 @@ def getTopics():
         topics = mongo.db.topics.find({ '$text': {
             '$search': str(search), '$language': 'en', '$caseSensitive': False}}).sort(
                 'useCount', DESCENDING)
-    return ")]}',\n" + json_util.dumps([ t for t in topics ])
-
-@app.route('/api/useTopic', methods=['GET'])
-def useTopic():
-    topicID = ObjectId(request.args.get("topic"))
-    mongo.db.topics.update({'_id': topicId}, {'$inc': {'useCount': 1}})
+    return json_util.dumps([ t for t in topics ])
 
 @app.route('/api/inbound')
 def inbound():
@@ -115,10 +110,28 @@ def token():
     return ret
 
 @app.route('/')
-def index():
-    return render_template('index.html',
+def index2():
+    return render_template('index2.html',
         googleAPIKey=app.config['GOOGLE_API_KEY'],
         googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'])
+
+@app.route('/caller')
+def caller():
+    search = request.args.get("topicId");
+    topics = None
+
+    if search:
+        topics = json_util.dumps(mongo.db.topics.find_one_and_update(
+            {'_id': ObjectId(search)},
+            {'$inc': { 'searchCount': 1 }}
+        ))
+    else:
+        topics = "null"
+
+    return render_template('caller.html',
+        googleAPIKey=app.config['GOOGLE_API_KEY'],
+        googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'],
+        topicDict=topics)
 
 if __name__ == '__main__':
     app.run()
