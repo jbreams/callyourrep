@@ -173,23 +173,40 @@
     })();
     var template = Handlebars.compile($("#topics-results-template").html());
 
-    $.getJSON("/api/topics.json")
-      .done(function(data) {
-        console.log(data);
-        $("#results").append(template({topics: data}));
+    var searchTopics = function(topic) {
+        var data = {};
+        if (topic.length) {
+            data = { search: topic }
+        }
+        var doneFn = function(data)  {
+          var results = $("#results");
+          results.empty();
+          results.append(template({topics: data}));
 
-        $(function () {
-            $('[data-toggle="popover"]').popover()
-        })
-      })
-      .fail(function() {
-        errorAlert("Error loading topics",
-            "There was a failure loading the list of topics from the server. " +
-            "Please try again later");
-      });
+          $(function () {
+              $('[data-toggle="popover"]').popover()
+          })
+        };
+        var errorFn = function() {
+          errorAlert("Error loading topics",
+              "There was a failure loading the list of topics from the server. " +
+              "Please try again later");
+        };
+
+        if (topic.length) {
+            $.getJSON("/api/topics.json", { search: topic })
+              .done(doneFn)
+              .fail(errorFn);
+        } else {
+          $.getJSON("/api/topics.json")
+            .done(doneFn)
+            .fail(errorFn);
+        }
+    };
+    searchTopics("");
 
     $("#search").keyup(debounce(function(ev) {
-      console.log(ev);
+      searchTopics(ev.target.value);
     }, 500));
   </script>
   <script>
