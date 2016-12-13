@@ -61,11 +61,12 @@ def getDistricts():
 def getTopics():
     search = request.args.get("search")
     if not search:
-        topics = mongo.db.topics.find().sort('useCount', DESCENDING).limit(4)
+        topics = mongo.db.topics.find().sort('searchCount', DESCENDING).limit(4)
     else:
-        topics = mongo.db.topics.find({ '$text': {
-            '$search': str(search), '$language': 'en', '$caseSensitive': False}}).sort(
-                'useCount', DESCENDING)
+        terms = { '$text': {
+            '$search': str(search), '$language': 'en', '$caseSensitive': False}}
+        topics = mongo.db.topics.find(terms).sort(
+                'searchCount', DESCENDING)
     return json_util.dumps([ t for t in topics ])
 
 @app.route('/api/inbound')
