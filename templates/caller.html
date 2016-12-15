@@ -251,12 +251,16 @@
       var callButton = $("#call-them-button-" + districtId);
       var district = districts[districtId];
       var timerWell = $("#call-timer-" + districtId);
+      var topicId = null;
+      if (topic) {
+        topicId = topic._id.$oid;
+      }
 
       if (callButton.text().trim() == "Call them") {
         this.connection = Twilio.Device.connect({
           PhoneNumber: district['phone'],
           AddressHash: addressHash,
-          TopicId: topic._id.$oid,
+          TopicId: topicId,
         });
         Twilio.Device.disconnect(function() {
           makeCall(districtId);

@@ -83,6 +83,7 @@ def inbound():
     phoneNumber = request.args.get('PhoneNumber')
     addressHash = request.args.get('AddressHash')
     callStatus = request.args.get('CallStatus')
+    topicId = request.args.get("TopicId", None)
 
     district = mongo.db.districts.find_one({'phone': phoneNumber})
     if not district:
@@ -107,6 +108,9 @@ def inbound():
     mongo.db.calls.insert_one({'timestamp': now,
                                'addressHash': addressHash,
                                'phoneNumber': parsedNumber})
+
+    if topicId and topicId != "null":
+        mongo.db.topics.update_one({'_id': ObjectId(topicId)}, {'$inc': {'callCount' : 1}})
 
     return str(resp)
 
@@ -148,8 +152,21 @@ def smsInbound():
             'key': app.config['GOOGLE_API_KEY'],
             'query': request.args.get("Body"),
         }
-        r = requests.get("https://maps.googleapis.com/maps/api/place/textsearch/json", params=params)
-        addressResult = r.json()['results'][0]['geometry']['location']
+        headers = {
+            'Referer': app.config['BASE_URL'],
+        }
+        r = requests.get("https://maps.googleapis.com/maps/api/place/textsearch/json",
+                params=params,
+                headers=headers)
+        r.raise_for_status()
+        mapResp = r.json()
+        if mapResp['status'] != "OK":
+            resp.message("There was an error looking up your address. Please try again later.")
+            if 'error_message' in mapResp:
+                print "Error querying maps: " + mapResp.error_message
+            return str(resp)
+
+        addressResult = mapResp['results'][0]['geometry']['location']
         query = { 'district': { '$geoIntersects': { '$geometry': {
             'type': 'Point', 'coordinates': [
                 float(addressResult['lng']), float(addressResult['lat']) ] } } } }
