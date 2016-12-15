@@ -1,13 +1,17 @@
-from flask import Flask, request, json, render_template
+from flask import Flask, request, json, render_template, session
 from flask.ext.pymongo import PyMongo, ASCENDING, DESCENDING
 from twilio.util import TwilioCapability
 from twilio import twiml
+from twilio.rest import TwilioRestClient
 from datetime import datetime, timedelta
 import phonenumbers
+import requests
 from bson import json_util
 from bson.objectid import ObjectId
 import pytz
 import os
+
+from pprint import pprint
 
 app = Flask(__name__)
 for (k, v) in os.environ.items():
@@ -19,6 +23,7 @@ if 'DYNO' in os.environ: # only trigger SSLify if the app is running on Heroku
     sslify = SSLify(app)
 
 app.config.from_envvar('CALLYOURREP_SETTINGS', silent=True)
+app.secret_key = app.config['SESSION_SECRET_KEY']
 mongo = PyMongo(app, 'MONGODB')
 
 jinja_options = app.jinja_options.copy()
@@ -33,6 +38,7 @@ jinja_options.update(dict(
 ))
 app.jinja_options = jinja_options
 
+twilioClient = TwilioRestClient(app.config['TWILIO_ACCOUNT_SID'], app.config['TWILIO_AUTH_TOKEN'])
 
 utc = pytz.utc
 
@@ -100,6 +106,88 @@ def inbound():
                                'addressHash': addressHash,
                                'phoneNumber': parsedNumber})
 
+    return str(resp)
+
+@app.route('/api/smsCallResponse', methods=['POST', 'GET'])
+def smsCallResponse():
+    resp = twiml.Response()
+    callId = request.args.get("callId", None)
+    if not callId:
+        resp.say("Sorry, I couldn't find the call you wanted.")
+        resp.say("Text your address to {0} to try again".format(
+            app.config['TWILIO_OUTGOING_NUMBER']))
+        return str(resp)
+
+    callInfo = mongo.db.calls.find_one({'_id': ObjectId(callId)})
+
+    if not callInfo:
+        resp.say("Sorry, I couldn't find the call you wanted.")
+        resp.say("Text your address to {0} to try again".format(
+            app.config['TWILIO_OUTGOING_NUMBER']))
+        return str(resp)
+
+    rep = callInfo['districts'][callInfo['nextDistrict']]
+
+    resp.say("I'm connecting you to {}, the {}".format(rep['repName'], rep['fullTitle']))
+    resp.dial(number=rep['phone'],
+            callerId=app.config['TWILIO_OUTGOING_NUMBER'],
+            timeLimit=1200)
+
+    return str(resp)
+
+@app.route('/api/smsInbound', methods=['POST', 'GET'])
+def smsInbound():
+    callId = ObjectId(session.get("callId", ObjectId()))
+    callInfo = mongo.db.calls.find_one({'_id': callId})
+
+    if not callInfo:
+        callInfo = { '_id': callId }
+        params = {
+            'key': app.config['GOOGLE_API_KEY'],
+            'query': request.args.get("Body"),
+        }
+        r = requests.get("https://maps.googleapis.com/maps/api/place/textsearch/json", params=params)
+        addressResult = r.json()['results'][0]['geometry']['location']
+        query = { 'district': { '$geoIntersects': { '$geometry': {
+            'type': 'Point', 'coordinates': [
+                float(addressResult['lng']), float(addressResult['lat']) ] } } } }
+
+        districts = []
+        for d in mongo.db.districts.find(query).sort('_id', ASCENDING):
+            parsedNumber = phonenumbers.format_number(phonenumbers.parse(d['phone'], 'US'),
+                phonenumbers.PhoneNumberFormat.E164)
+            districts.append({
+                '_id': d['_id'],
+                'phone': parsedNumber,
+                'repName': d['repName'],
+                'fullTitle': d['fullTitle'],
+            })
+        if len(districts) == 0:
+            twilioResp.message(
+                "Sorry, I couldn't find your congressional representatives! I'll look into it!")
+            return str(twilioResp)
+
+        callInfo['districts'] = districts
+        callInfo['nextDistrict'] = 0
+        callInfo['address'] = addressResult
+        callInfo['callBack'] = request.args.get("From")
+
+        mongo.db.calls.insert_one(callInfo)
+
+    else:
+        callInfo['nextDistrict'] += 1
+        if callInfo['nextDistrict'] > len(callInfo['districts']):
+            callInfo['nextDistrict'] = 0
+        mongo.db.calls.replace_one({'_id': callInfo['_id']}, callInfo)
+
+    call = twilioClient.calls.create(
+        url=app.config['BASE_URL'] + '/api/smsCallResponse' + '?callId=' + str(callInfo['_id']),
+        to=callInfo['callBack'],
+        from_=app.config['TWILIO_OUTGOING_NUMBER'])
+
+    session['callId'] = str(callInfo['_id'])
+    resp = twiml.Response()
+    resp.message("Okay, I'll connect you. Text 'again' after your call to call your next rep!")
     return str(resp)
 
 @app.route('/api/twilioToken')
