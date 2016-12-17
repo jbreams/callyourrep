@@ -3,6 +3,7 @@ flask-pymongo
 flask-sslify
 gunicorn
 phonenumbers
+passlib
 pymongo
 pytz
 pyyaml

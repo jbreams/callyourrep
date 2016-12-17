@@ -1,0 +1,349 @@
+from bson import json_util
+from bson.objectid import ObjectId
+from datetime import datetime, timedelta
+from flask import Flask, request, json, render_template, session, redirect, url_for
+from flask.ext.pymongo import PyMongo, ASCENDING, DESCENDING
+from functools import wraps
+from passlib.hash import argon2
+from twilio import twiml
+from twilio.rest import TwilioRestClient
+from twilio.util import TwilioCapability
+import os
+import phonenumbers
+import pytz
+import requests
+
+from pprint import pprint
+
+app = Flask(__name__)
+for (k, v) in os.environ.items():
+    if k.startswith(('MONGODB_', 'TWILIO_', 'GOOGLE_')):
+        app.config[k] = v
+    elif k in [ 'SESSION_SECRET_KEY', 'BASE_URL' ]:
+        app.config[k] = v
+
+from flask_sslify import SSLify
+if 'DYNO' in os.environ: # only trigger SSLify if the app is running on Heroku
+    sslify = SSLify(app)
+
+app.config.from_envvar('CALLYOURREP_SETTINGS', silent=True)
+app.secret_key = app.config['SESSION_SECRET_KEY']
+mongo = PyMongo(app, 'MONGODB')
+
+jinja_options = app.jinja_options.copy()
+
+jinja_options.update(dict(
+    block_start_string='<%',
+    block_end_string='%>',
+    variable_start_string='%%',
+    variable_end_string='%%',
+    comment_start_string='<#',
+    comment_end_string='#>'
+))
+app.jinja_options = jinja_options
+
+twilioClient = TwilioRestClient(app.config['TWILIO_ACCOUNT_SID'], app.config['TWILIO_AUTH_TOKEN'])
+
+utc = pytz.utc
+
+@app.route('/api/districts.json', methods=['GET'])
+def getDistricts():
+    lat = request.args.get('lat')
+    lon = request.args.get('lon')
+    query = { 'district': { '$geoIntersects': { '$geometry': {
+        'type': 'Point', 'coordinates': [ float(lon), float(lat) ]}}}}
+
+    districts = [ d for d in mongo.db.districts.find(query).sort('_id', ASCENDING) ]
+    for (idx, d) in enumerate(districts):
+        betterCommittees = []
+        for c in d['committees']:
+            betterData = mongo.db.committees.find_one({'_id': c['committee']})
+            betterData['rank'] = c['rank']
+            betterCommittees.append(betterData)
+        districts[idx]['committees'] = betterCommittees
+
+    updateQuery = { '_id': { '$in': [ d['_id'] for d in districts ] }}
+    mongo.db.districts.update_many(updateQuery, { '$inc': { 'searches': 1 }})
+
+    return json.dumps(districts)
+
+@app.route('/api/topics.json', methods=['GET'])
+def getTopics():
+    search = request.args.get("search")
+    if not search:
+        topics = mongo.db.topics.find().sort('searchCount', DESCENDING).limit(4)
+    else:
+        terms = { '$text': {
+            '$search': str(search), '$language': 'en', '$caseSensitive': False}}
+        topics = mongo.db.topics.find(terms).sort(
+                'searchCount', DESCENDING)
+    return json_util.dumps([ t for t in topics ])
+
+@app.route('/api/inbound')
+def inbound():
+    resp = twiml.Response()
+    phoneNumber = request.args.get('PhoneNumber')
+    addressHash = request.args.get('AddressHash')
+    callStatus = request.args.get('CallStatus')
+    topicId = request.args.get("TopicId", None)
+
+    district = mongo.db.districts.find_one({'phone': phoneNumber})
+    if not district:
+        resp.say("You are trying to call an unknown phone number")
+        return str(resp)
+
+    parsedNumber = phonenumbers.format_number(phonenumbers.parse(district['phone'], 'US'),
+        phonenumbers.PhoneNumberFormat.E164)
+
+    lastCall = mongo.db.calls.find_one({'addressHash': addressHash,
+                                        'phoneNumber': parsedNumber})
+    now = datetime.now(utc)
+    if lastCall and lastCall['timestamp'] + timedelta(hours=24) > now:
+        resp.say("You have already called " + phoneNumber + " in the last 24 hours." +
+                 "Please try again tomorrow")
+        return str(resp)
+
+    resp.dial(number=parsedNumber,
+            callerId=app.config['TWILIO_OUTGOING_NUMBER'],
+            timeLimit=1200)
+    mongo.db.districts.update_one({'_id': district['_id']}, { '$inc': { 'calls': 1 }})
+    mongo.db.calls.insert_one({'timestamp': now,
+                               'addressHash': addressHash,
+                               'phoneNumber': parsedNumber})
+
+    if topicId and topicId != "null":
+        mongo.db.topics.update_one({'_id': ObjectId(topicId)}, {'$inc': {'callCount' : 1}})
+
+    return str(resp)
+
+@app.route('/api/smsCallResponse', methods=['POST', 'GET'])
+def smsCallResponse():
+    resp = twiml.Response()
+    callId = request.args.get("callId", None)
+    if not callId:
+        resp.say("Sorry, I couldn't find the call you wanted.")
+        resp.say("Text your address to {0} to try again".format(
+            app.config['TWILIO_OUTGOING_NUMBER']))
+        return str(resp)
+
+    callInfo = mongo.db.calls.find_one({'_id': ObjectId(callId)})
+
+    if not callInfo:
+        resp.say("Sorry, I couldn't find the call you wanted.")
+        resp.say("Text your address to {0} to try again".format(
+            app.config['TWILIO_OUTGOING_NUMBER']))
+        return str(resp)
+
+    rep = callInfo['districts'][callInfo['nextDistrict']]
+
+    resp.say("I'm connecting you to {}, the {}".format(rep['repName'], rep['fullTitle']))
+    resp.dial(number=rep['phone'],
+            callerId=app.config['TWILIO_OUTGOING_NUMBER'],
+            timeLimit=1200)
+
+    return str(resp)
+
+@app.route('/api/smsInbound', methods=['POST', 'GET'])
+def smsInbound():
+    callId = ObjectId(session.get("callId", ObjectId()))
+    callInfo = mongo.db.calls.find_one({'_id': callId})
+
+    if not callInfo:
+        callInfo = { '_id': callId }
+        params = {
+            'key': app.config['GOOGLE_API_KEY'],
+            'query': request.args.get("Body"),
+        }
+        headers = {
+            'Referer': app.config['BASE_URL'],
+        }
+        r = requests.get("https://maps.googleapis.com/maps/api/place/textsearch/json",
+                params=params,
+                headers=headers)
+        r.raise_for_status()
+        mapResp = r.json()
+        if mapResp['status'] != "OK":
+            resp.message("There was an error looking up your address. Please try again later.")
+            if 'error_message' in mapResp:
+                print "Error querying maps: " + mapResp.error_message
+            return str(resp)
+
+        addressResult = mapResp['results'][0]['geometry']['location']
+        query = { 'district': { '$geoIntersects': { '$geometry': {
+            'type': 'Point', 'coordinates': [
+                float(addressResult['lng']), float(addressResult['lat']) ] } } } }
+
+        districts = []
+        for d in mongo.db.districts.find(query).sort('_id', ASCENDING):
+            parsedNumber = phonenumbers.format_number(phonenumbers.parse(d['phone'], 'US'),
+                phonenumbers.PhoneNumberFormat.E164)
+            districts.append({
+                '_id': d['_id'],
+                'phone': parsedNumber,
+                'repName': d['repName'],
+                'fullTitle': d['fullTitle'],
+            })
+        if len(districts) == 0:
+            twilioResp.message(
+                "Sorry, I couldn't find your congressional representatives! I'll look into it!")
+            return str(twilioResp)
+
+        callInfo['districts'] = districts
+        callInfo['nextDistrict'] = 0
+        callInfo['address'] = addressResult
+        callInfo['callBack'] = request.args.get("From")
+
+        mongo.db.calls.insert_one(callInfo)
+
+    else:
+        callInfo['nextDistrict'] += 1
+        if callInfo['nextDistrict'] > len(callInfo['districts']):
+            callInfo['nextDistrict'] = 0
+        mongo.db.calls.replace_one({'_id': callInfo['_id']}, callInfo)
+
+    call = twilioClient.calls.create(
+        url=app.config['BASE_URL'] + '/api/smsCallResponse' + '?callId=' + str(callInfo['_id']),
+        to=callInfo['callBack'],
+        from_=app.config['TWILIO_OUTGOING_NUMBER'])
+
+    session['callId'] = str(callInfo['_id'])
+    resp = twiml.Response()
+    resp.message("Okay, I'll connect you. Text 'again' after your call to call your next rep!")
+    return str(resp)
+
+@app.route('/api/twilioToken')
+def token():
+    capability = TwilioCapability(
+            app.config['TWILIO_ACCOUNT_SID'], app.config['TWILIO_AUTH_TOKEN'])
+    capability.allow_client_outgoing(app.config['TWILIO_APP_SID'])
+    ret = capability.generate()
+    return ret
+
+@app.route('/topics')
+def index2():
+    return render_template('index.html',
+        googleAPIKey=app.config['GOOGLE_API_KEY'],
+        googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'])
+
+def createSessionForUser(userDoc):
+    sessionDoc = {
+        '_id': ObjectId(),
+        'user': userDoc['_id'],
+        'started': datetime.now(utc),
+    }
+    mongo.db.sessions.insert_one(sessionDoc)
+    session["sessionId"] = str(sessionDoc['_id'])
+
+def loginRequired(f):
+    @wraps(f)
+
+    def decorated_function(*args, **kwargs):
+        if not session.get("sessionId"):
+            return redirect(url_for('signin',
+                next=request.url, error="You must login to view this page"))
+
+        sessionDoc = mongo.db.sessions.find_one({'_id': ObjectId(session.get("sessionId"))})
+        if not sessionDoc:
+            return redirect(url_for('signin',
+                next=request.url, error="Invalid session. You must login to view this page"))
+        if 'ended' in sessionDoc:
+            return redirect(url_for('signin',
+                next=request.url, error="Session expired. You must login to view this page"))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/signin', methods=['GET', 'POST'])
+def signin():
+    if request.method == 'GET':
+        return render_template('signin.html',
+            googleAPIKey=app.config['GOOGLE_API_KEY'],
+            googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'],
+            googleRecaptchaKey=app.config['GOOGLE_RECAPTCHA_KEY'],
+            errorText=None)
+    try:
+        redirectTo = request.args.get('next', url_for('manage'))
+        if request.form.has_key("signin"):
+            userDoc = mongo.db.users.find_one({'email': request.form.get("signinEmail", type=str)})
+            if not userDoc:
+                raise Exception("Couldn't find a user with a matching email address")
+            if not argon2.verify(request.form.get("signinPassword", type=str), userDoc["password"]):
+                raise Exception("Incorrect password")
+
+            createSessionForUser(userDoc)
+
+            return redirect(redirectTo)
+        elif request.form.has_key("signup"):
+            if request.form.get("signupPassword") != request.form.get("signupPassword2"):
+                raise Exception("Passwords do not match");
+            if not request.form.get("signupEmail"):
+                raise Exception("Email must not be empty to sign up")
+            if request.form.get("signupPassword", type=str) == "":
+                raise Exception("Password must not be empty to sign up")
+            captchaResult = requests.post("https://www.google.com/recaptcha/api/siteverify",
+                params = {
+                    'secret': app.config['GOOGLE_RECAPTCHA_SECRET'],
+                    'response': request.form.get('g-recaptcha-response'),
+                    'remoteip': request.remote_addr },
+                headers = {
+                    'Referer': app.config['BASE_URL'],
+                })
+
+            if captchaResult.status_code != 200:
+                raise Exception("Exception running captcha verification")
+            captchaResultObj = captchaResult.json()
+            if captchaResultObj['success'] == False:
+                pprint(captchaResultObj)
+                errorCodes = captchaResultObj.get("error-codes", "Unknown error")
+                raise Exception("Exception running captcha verification: {}".format(errorCodes))
+
+            userDoc = {
+                '_id': ObjectId(),
+                'email': request.form.get('signupEmail', type=str),
+                'password': argon2.hash(request.form.get('signupPassword', type=str)),
+                'created': datetime.now(utc),
+            }
+            mongo.db.users.insert_one(userDoc)
+            createSessionForUser(userDoc)
+            return redirect(redirectTo)
+    except Exception as e:
+        return render_template('signin.html',
+        googleAPIKey=app.config['GOOGLE_API_KEY'],
+        googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'],
+        googleRecaptchaKey=app.config['GOOGLE_RECAPTCHA_KEY'],
+        errorText=str(e))
+
+@app.route('/signout')
+@loginRequired
+def signout():
+    mongo.db.sessions.update_one(
+        {'_id': ObjectId(session.get("sessionId"))},
+        {'$set': { 'ended': datetime.now(utc) } }
+    )
+    return redirect('/')
+
+
+@app.route('/manage')
+@loginRequired
+def manage():
+    pass
+
+@app.route('/')
+def caller():
+    search = request.args.get("topicId");
+    topics = None
+
+    if search:
+        topics = json_util.dumps(mongo.db.topics.find_one_and_update(
+            {'_id': ObjectId(search)},
+            {'$inc': { 'searchCount': 1 }}
+        ))
+    else:
+        topics = "null"
+
+    return render_template('caller.html',
+        googleAPIKey=app.config['GOOGLE_API_KEY'],
+        googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'],
+        topicDict=topics)
+
+if __name__ == '__main__':
+    app.run()

@@ -14,11 +14,13 @@
 .cyr-col {
   display: flex;
   flex-direction: column;
+  height: inherit;
 }
 
 .cyr-row {
   display: flex;
   flex-direction: row;
+  height: inherit;
 }
 
 .cyr-flex {
@@ -63,4 +65,8 @@
 
 .cyr-share-dropdown {
   min-width: auto !important;
+}
+
+img {
+  height: inherit;
 }
