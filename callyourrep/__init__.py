@@ -45,6 +45,9 @@ twilioClient = TwilioRestClient(app.config['TWILIO_ACCOUNT_SID'], app.config['TW
 utc = pytz.utc
 
 import callyourrep.users as users
+import callyourrep.callscripts as callscript_views
+import callyourrep.campaigns as campaign_views
+import callyourrep.contacts as contact_views
 
 @app.route('/api/districts.json', methods=['GET'])
 def getDistricts():

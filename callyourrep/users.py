@@ -31,6 +31,33 @@ def loginRequired(f):
         if 'ended' in sessionDoc:
             return redirect(url_for('signin',
                 next=request.url, error="Session expired. You must login to view this page"))
+        setattr(request, 'userId', sessionDoc['user'])
+
+        campaignsCursor = mongo.db.campaigns.find({'owners': sessionDoc['user']})
+        campaigns = [ c._id for c in campaignsCursor ]
+        setattr(request, 'userOwnerOf', campaigns)
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+def loginOptional(f):
+    @wraps(f)
+
+    def decorated_function(*args, **kwargs):
+        setattr(request, 'userId', None)
+        setattr(request, 'userOwnerOf', [])
+        if not session.get("sessionId"):
+            return f(*args, **kwargs)
+
+        sessionDoc = mongo.db.sessions.find_one({'_id': ObjectId(session.get("sessionId"))})
+        if not sessionDoc or 'ended' in sessionDoc:
+            return f(*args, **kwargs)
+        setattr(request, 'userId', sessionDoc['user'])
+
+        campaignsCursor = mongo.db.campaigns.find({'owners': sessionDoc['user']})
+        campaigns = [ c._id for c in campaignsCursor ]
+        setattr(request, 'userOwnerOf', campaigns)
+
         return f(*args, **kwargs)
     return decorated_function
 
