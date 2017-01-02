@@ -30,13 +30,16 @@
   </head>
   <body>
     <div class="content-wrapper cyr-grid cyr-col">
-      <div class="cyr-row" style="height: 100px">
-        <div class="cyr-col">
-        <img src="/static/stars.png">
+      <div class="navbar navbar-default cyr-navbar cyr-row">
+        <div class="navbar-header">
+          <span class="navbar-brand">
+            <img src="/static/favicon.png">
+          </span>
+          <span class="navbar-brand navbar-collapse">
+            Call Your Rep - Signin
+          </span>
         </div>
-        <div class="cyr-col cyr-flex">
-        <img src="/static/stripes.png">
-        </div>
+        <span class="cyr-flex"></span>
       </div>
       <% if errorText %>
       <div class="cyr-col alert alert-danger" role="alert">
@@ -44,38 +47,50 @@
       </div>
       <% endif %>
       <div class="cyr-col">
-        <h3>Sign in</h3>
-        <form action="?" method="POST">
-          <div class="form-group">
-            <label for="signinUsername">Email</label>
-            <input type="email" class="form-control" name="signinEmail" placeholder="Email">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">Sign in</h3>
           </div>
-          <div class="form-group">
-            <label for="signinPassword">Password</label>
-            <input type="password" class="form-control" name="signinPassword" placeholder="Password">
+          <div class="panel-body">
+            <form action="?" method="POST">
+              <div class="form-group">
+                <label for="signinUsername">Email</label>
+                <input type="email" class="form-control" name="signinEmail" placeholder="Email">
+              </div>
+              <div class="form-group">
+                <label for="signinPassword">Password</label>
+                <input type="password" class="form-control" name="signinPassword" placeholder="Password">
+              </div>
+              <button type="submit" class="btn btn-default" name="signin">Login</button>
+            </form>
           </div>
-          <button type="submit" class="btn btn-default" name="signin">Login</button>
-        </form>
+        </div>
       </div>
 
       <div class="cyr-col">
-        <h3>Sign up</h3>
-        <form action="?" method="POST">
-          <div class="form-group">
-            <label for="signupUsername">Email</label>
-            <input type="email" class="form-control" name="signupEmail" placeholder="Email">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">Sign up</h3>
           </div>
-          <div class="form-group">
-            <label for="signupPassword">Password</label>
-            <input type="password" class="form-control" name="signupPassword" placeholder="Password">
+          <div class="panel-body">
+            <form action="?" method="POST">
+              <div class="form-group">
+                <label for="signupUsername">Email</label>
+                <input type="email" class="form-control" name="signupEmail" placeholder="Email">
+              </div>
+              <div class="form-group">
+                <label for="signupPassword">Password</label>
+                <input type="password" class="form-control" name="signupPassword" placeholder="Password">
+              </div>
+              <div class="form-group">
+                <label for="signupPassword">Re-enter password</label>
+                <input type="password" class="form-control" name="signupPassword2" placeholder="Password">
+              </div>
+              <div class="g-recaptcha cyr-right" data-sitekey="%% googleRecaptchaKey %%"></div>
+              <button type="submit" class="btn btn-default" name="signup">Login</button>
+            </form>
           </div>
-          <div class="form-group">
-            <label for="signupPassword">Re-enter password</label>
-            <input type="password" class="form-control" name="signupPassword2" placeholder="Password">
-          </div>
-          <div class="g-recaptcha cyr-right" data-sitekey="%% googleRecaptchaKey %%"></div>
-          <button type="submit" class="btn btn-default" name="signup">Login</button>
-        </form>
+        </div>
       </div>
     </div>
   </body>

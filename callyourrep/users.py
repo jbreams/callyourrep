@@ -7,6 +7,19 @@ from functools import wraps
 from passlib.hash import argon2
 import requests
 
+userSchema = {
+    '$schema': 'https://www.callyourrep.us/static/userSchema.json',
+    'type': 'object',
+    'properties': {
+        '_id': { 'type': 'string', 'pattern': '^[A-Fa-f\d]{24}$' },
+        'email': { 'type': 'string', 'format': 'email' },
+        'password': { 'type': 'string' },
+    },
+    'required': [
+        'email',
+    ]
+}
+
 def createSessionForUser(userDoc):
     sessionDoc = {
         '_id': ObjectId(),
@@ -34,7 +47,7 @@ def loginRequired(f):
         setattr(request, 'userId', sessionDoc['user'])
 
         campaignsCursor = mongo.db.campaigns.find({'owners': sessionDoc['user']})
-        campaigns = [ c._id for c in campaignsCursor ]
+        campaigns = [ c['_id'] for c in campaignsCursor ]
         setattr(request, 'userOwnerOf', campaigns)
 
         return f(*args, **kwargs)
@@ -101,7 +114,6 @@ def signin():
                 raise Exception("Exception running captcha verification")
             captchaResultObj = captchaResult.json()
             if captchaResultObj['success'] == False:
-                pprint(captchaResultObj)
                 errorCodes = captchaResultObj.get("error-codes", "Unknown error")
                 raise Exception("Exception running captcha verification: {}".format(errorCodes))
 
@@ -129,3 +141,32 @@ def signout():
         {'$set': { 'ended': datetime.now(utc) } }
     )
     return redirect('/')
+
+@app.route('/api/user')
+@loginRequired
+def getUsersApi():
+    userId = request.args.get("id", None, ObjectId)
+    email = request.args.get("email", None, str)
+    try:
+        return json.dumps({'status': 'OK', 'result': getUser(email, userId) })
+    except Exception as e:
+        return json.dumps({'status': 'FAIL', 'error_message': str(e) })
+
+def getUser(email, userId = None):
+    userDoc = None
+    if email:
+        userDoc = mongo.db.users.find_one({'email': email})
+        if not userDoc:
+            raise Exception("No user found with that email address")
+    elif userId:
+        if not isinstance(userId, ObjectId):
+            userId = ObjectId(userId)
+        userDoc = mongo.db.users.find_one({'_id': userId})
+        if not userDoc:
+            raise Exception("No user found with that id")
+    else:
+        raise Exception("Must provide either a user id or email to lookup")
+
+    return { '_id': str(userDoc['_id']), 'email': userDoc['email'] }
+
+

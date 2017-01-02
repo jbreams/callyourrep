@@ -10,12 +10,13 @@ import os
 import phonenumbers
 import pytz
 import requests
+import stripe
 
 from pprint import pprint
 
 app = Flask(__name__)
 for (k, v) in os.environ.items():
-    if k.startswith(('MONGODB_', 'TWILIO_', 'GOOGLE_')):
+    if k.startswith(('MONGODB_', 'TWILIO_', 'GOOGLE_', 'STRIPE_')):
         app.config[k] = v
     elif k in [ 'SESSION_SECRET_KEY', 'BASE_URL' ]:
         app.config[k] = v
@@ -41,13 +42,14 @@ jinja_options.update(dict(
 app.jinja_options = jinja_options
 
 twilioClient = TwilioRestClient(app.config['TWILIO_ACCOUNT_SID'], app.config['TWILIO_AUTH_TOKEN'])
+stripe.api_key = app.config['STRIPE_SECRET_KEY']
 
 utc = pytz.utc
 
 import callyourrep.users as users
-import callyourrep.callscripts as callscript_views
-import callyourrep.campaigns as campaign_views
-import callyourrep.contacts as contact_views
+import callyourrep.callscripts as callscripts
+import callyourrep.campaigns as campaigns
+import callyourrep.contacts as contacts
 
 @app.route('/api/districts.json', methods=['GET'])
 def getDistricts():
@@ -231,7 +233,52 @@ def index2():
 @app.route('/manage')
 @users.loginRequired
 def manage():
-    pass
+    campaignId = request.args.get("campaign", None, str)
+    campaignsList = campaigns.getCampaigns(None)
+    if not campaignId:
+        (firstPublic, firstPrivate) = (None, None)
+        for (i, v) in campaignsList.items():
+            if v['type'] == 'private' and not firstPrivate:
+                firstPrivate = i
+            else:
+                firstPublic = i
+        campaignId = firstPrivate if firstPrivate else firstPublic
+
+    return render_template('manage.html',
+        googleAPIKey=app.config['GOOGLE_API_KEY'],
+        googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'],
+        callScripts=json.dumps(callscripts.getCallScripts(None, campaignId, None)),
+        contacts=json.dumps(contacts.getContacts(None, None, None, campaignId)),
+        campaignId=json.dumps(campaignId),
+        campaigns=json.dumps(campaignsList),
+    )
+@app.route('/manageCampaign')
+@users.loginRequired
+def manageCampaign():
+    campaignId = request.args.get("campaign", None, ObjectId)
+    campaign = None
+    if campaignId:
+        campaign = campaigns.getCampaigns(campaignId)
+        print campaign
+        if campaign and str(campaignId) not in campaign:
+            campaign = None
+        else:
+            campaign = campaign[str(campaignId)]
+    usersList = [ users.getUser(None, request.userId) ]
+    if campaign:
+        for o in campaign['owners']:
+            usersList.append(users.getUser(None, o))
+        if campaign['billingOwner']:
+            usersList.append(users.getUser(None, campaign['billingOwner']))
+
+    return render_template('managecampaign.html',
+        googleAPIKey=app.config['GOOGLE_API_KEY'],
+        googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'],
+        stripePublishableKey=app.config['STRIPE_PUBLISHABLE_KEY'],
+        campaign=json.dumps(campaign),
+        users=json.dumps(dict([(u['_id'], u) for u in usersList])),
+        loggedInUser=json.dumps(str(request.userId)),
+    )
 
 @app.route('/')
 def caller():

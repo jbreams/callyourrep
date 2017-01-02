@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="shortcut icon" type="image/png" href="/static/favicon.png"/>
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <title>Call Your Rep!</title>
+
+    <!-- Bootstrap -->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet"
+        href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+        integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
+        crossorigin="anonymous">
+
+    <link rel="stylesheet"
+        href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
+        integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN"
+        crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/main.css">
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.6/handlebars.min.js"></script>
+  </head>
+  <body>
+    <div class="content-wrapper cyr-grid cyr-col">
+      <div class="navbar navbar-default cyr-navbar cyr-row">
+        <div class="navbar-header">
+          <span class="navbar-brand">
+            <img src="/static/favicon.png">
+          </span>
+          <span class="navbar-brand navbar-collapse">
+            Call Your Rep
+          </span>
+        </div>
+        <span class="cyr-flex"></span>
+        <ul class="nav navbar-nav">
+          <li class="dropdown">
+            <a href="#"
+               class="dropdown-toggle"
+               data-toggle="dropdown"
+               role="button"
+               aria-haspopup="true"
+               aria-expanded="false">
+              jbreams@gmail.com <span class="caret"></span>
+            </a>
+            <ul class="dropdown-menu">
+              <li><a href="/signout">Sign out</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+      <div class="cyr-row cyr-page-header">
+        <h3 id="title">Update Your Campaign</h3>
+        <span class="cyr-flex"></span>
+      </div>
+      <div id="alertContainer"></div>
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 class="panel-title">Details</h3>
+        </div>
+        <div class="panel-body">
+          <form action="#" id="campaignForm">
+            <div class="form-group">
+              <label for="name">
+                Name
+              </label>
+              <input type="text" name="name" class="form-control">
+            </div>
+            <div class="form-group">
+              <label for="type">
+                Type
+              </label>
+              <select name="type" class="form-control">
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </select>
+            </div>
+            <div class="cyr-protected-section">
+              <div class="form-group">
+                <label for="owners">
+                  Owners
+                </label>
+                <div class="panel panel-default">
+                  <div class="panel-heading input-group">
+                    <input type="text"
+                           class="form-control"
+                           name="newOwner"
+                           placeholder="Enter the email address of a new owner...">
+                    <span class="input-group-btn">
+                      <button name="addNewOwner" class="form-control">
+                        Add Owner
+                      </button>
+                    </span>
+                  </div>
+                  <ul class="list-group" id="ownersList">
+                  </ul>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="billingOwner">
+                  Billing Owner
+                </label>
+                <input type="text"
+                       name="billingOwner"
+                       class="form-control">
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="panel-footer">
+          <button type="button"
+                  id="saveButton"
+                  class="btn btn-primary cyr-protected-section">
+            Save
+          </button>
+        </div>
+      </div>
+      <div class="panel panel-default cyr-protected-section">
+        <div class="panel-heading">
+          <h3 class="panel-title">Billing</h3>
+        </div>
+        <div class="panel-body">
+          <form action="#" id="billingForm">
+            <div class="form-group">
+              <label>
+                Credit Card Number
+              </label>
+              <input type="text" class="form-control" data-stripe="number">
+            </div>
+            <div class="form-group">
+              <label>
+                Expiration (MM/YYYY)
+              </label>
+              <input type="text" class="form-control" data-stripe="exp" placeholder="MM/YYYY">
+            </div>
+            <div class="form-group">
+              <label>
+                CVC
+              </label>
+              <input type="text" class="form-control" data-stripe="cvc">
+            </div>
+            <div class="form-group">
+              <label>
+                Billing ZIP Code
+              </label>
+              <input type="text" class="form-control" data-stripe="address_zip">
+            </div>
+          </form>
+        </div>
+        <div class="panel-footer">
+          <button type="button"
+                  id="updateBillingButton"
+                  class="btn btn-primary cyr-protected-section">
+            Update Billing
+          </button>
+        </div>
+      </div>
+      <div class="panel panel-default cyr-protected-section">
+        <div class="panel-heading">
+          <h3 class="panel-title">Phone Numbers</h3>
+        </div>
+        <div class="panel-body">
+          <div class="panel panel-default">
+            <div class="panel-heading form-inline" id="buyPhoneNumberForm">
+              <div class="form-group">
+                <label for="areaCode">Area Code</label>
+                <input type="text" size="3" maxlength="3" class="form-control" name="areaCode">
+              </div>
+              <div class="form-group">
+                <label for="contains">Contains</label>
+                <input type="text" class="form-control" name="contains">
+              </div>
+              <div class="form-group">
+                <label for="tollFree">Toll Free</label>
+                <input type="checkbox" class="form-control" name="tollFree">
+              </div>
+              <div class="form-group">
+                <button class="btn btn-default" id="buyPhoneNumber">
+                  Buy Number
+                </button>
+              </div>
+            </div>
+            <ul class="list-group" id="phoneNumbersList">
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </body>
+  <script id="owners-list-item-template" type="text/x-handlebars-template">
+    <li class="list-group-item cyr-row" data-userid="{{_id}}">
+      <div>{{email}}</div>
+      <span class="cyr-flex"></span>
+      <div>
+        <button name="removeOwner"
+                class="btn btn-default btn-xs">
+          <i class="fa fa-trash" aria-hidden="true"></i>&nbsp;Remove
+        </button>
+      </div>
+    </li>
+  </script>
+  <script id="phone-numbers-list-item-template" type="text/x-handlebars-template">
+    <li class="list-group-item cyr-row">
+      <div>{{phoneNumber}}</div>
+      <span class="cyr-flex"></span>
+      <div>
+        <button name="removePhoneNumber"
+                class="btn btn-default btn-xs"
+                data-phonenumber="{{phoneNumber}}">
+          <i class="fa fa-trash" aria-hidden="true"></i>&nbsp;Remove
+        </button>
+      </div>
+    </li>
+  </script>
+  <script id="alert-template" type="text/x-handlebars-template">
+    <div class="alert alert-{{type}} alert-dismissible fade in" role="alert">
+      <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+      </button>
+          {{{content}}}
+    </div>
+  </script>
+  <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+  <!-- Include all compiled plugins (below), or include individual files as needed -->
+  <!-- Latest compiled and minified JavaScript -->
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
+      integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+      crossorigin="anonymous"></script>
+  <script type="text/javascript" src="https://js.stripe.com/v2/"></script>
+  <script>
+    var campaign = %% campaign | safe %%;
+    var users = %% users | safe %%;
+    var loggedInUser = %% loggedInUser | safe %%;
+
+    Stripe.setPublishableKey('%% stripePublishableKey %%');
+
+    var ownerListItemTemplate = Handlebars.compile($("#owners-list-item-template").html());
+    var phoneListItemTemplate = Handlebars.compile($("#phone-numbers-list-item-template").html());
+    var alertTemplate = Handlebars.compile($("#alert-template").html());
+
+    var showAlert = function(type, content, parentElem) {
+      var newAlert = $(alertTemplate({type: type, content: content}));
+      if (!parentElem) {
+        parentElem = $("#alertContainer");
+      }
+      else if(jQuery.isFunction(parentElem)) {
+        parentElem(newAlert);
+        return newAlert;
+      }
+      parentElem.append(newAlert);
+      return newAlert;
+    };
+
+    var onRemoveOwner = function(ev) {
+      ev.preventDefault();
+      $(this).closest("li").remove();
+    };
+    var onRemovePhoneNumber = function(ev) {
+      ev.preventDefault();
+
+      var listElem = $(this).closest("li");
+      var phoneNumber = $(this).data("phonenumber");
+      var ackAlert = showAlert('warning',
+          `<h4>Are you sure?</h4>
+          <p>You are about to remove this phone number. All call scripts associated with this
+          phone number will also be removed!</p>
+          <p>
+            <button type="button" class="btn btn-danger">Delete It</button>
+            <button type="button" class="btn btn-default">Nevermind</button>
+          </p>`,
+          function(e) { listElem.after(e) });
+      ackAlert.find(".btn-danger").click(function(ev) {
+        $.getJSON(
+          "/api/releasePhoneNumber",
+          { 'phoneNumber': phoneNumber },
+          function(data) {
+            console.log(data);
+            if (data['status'] == 'OK') {
+              listElem.remove();
+            }
+            else {
+              showAlert('danger', data['error_message'], function(e) { listElem.after(e) });
+            }
+        });
+        ackAlert.alert('close');
+      });
+      ackAlert.find(".btn-default").click(function(ev) {
+        ackAlert.alert('close');
+      });
+    }
+
+    if (campaign) {
+      $('input[name="name"]').val(campaign['name']);
+      $('select[name="type"] option[value="' + campaign['type'] + '"]').prop('selected', true);
+      if (campaign['billingOwner']) {
+        $('input[name="billingOwner"]').val(users[campaign['billingOwner']]['email']);
+      }
+      if (campaign['owners']) {
+        campaign['owners'].forEach(function(owner) {
+          var listItem = $(ownerListItemTemplate(users[owner]));
+          listItem.find("button").click(onRemoveOwner);
+          $("#ownersList").append(listItem);
+        });
+      }
+
+      campaign['phoneNumbers'].forEach(function(n) {
+        var phoneListItem = $(phoneListItemTemplate({phoneNumber: n}));
+        phoneListItem.find("button").click(onRemovePhoneNumber);
+        $("#phoneNumbersList").append(phoneListItem);
+      });
+
+      if (!campaign['isAdmin']) {
+        $(".cyr-protected-section").remove();
+      }
+    } else {
+      var listItem = ownerListItemTemplate(users[loggedInUser]);
+      $("#ownersList").append(listItem);
+      var billingOwner = $('input[name="billingOwner"]');
+      billingOwner.val(users[loggedInUser]['email']);
+      billingOwner.data('userid', loggedInUser)
+    }
+
+    var resolveUser = function(email, cb) {
+      var foundInCache = false;
+      $.each(users, function(k, v) {
+        if (v['email'] == email) {
+          cb(v);
+          foundInCache = true;
+        }
+      });
+      if (foundInCache) {
+        $("#saveButton").prop('disabled', false);
+        return;
+      }
+      $("#saveButton").prop('disabled', true);
+      $.getJSON('/api/user', { 'email': email }, function(data) {
+        if (data['status'] != 'OK') {
+          showAlert("danger", data['error_message']);
+          return;
+        }
+
+        cb(data['result']);
+        users[data['result']['_id']] = data['result'];
+        $("#saveButton").prop('disabled', false);
+      });
+    };
+
+    $('button[name="addNewOwner"]').click(function(ev) {
+      ev.preventDefault();
+      var ownerEmail = $('input[name="newOwner"]').val();
+      resolveUser(ownerEmail, function(user) {
+        var listItem = $(ownerListItemTemplate(user));
+        listItem.find("button").click(onRemoveOwner);
+        $("#ownersList").append(listItem);
+      });
+    });
+
+    $('input[name="billingOwner"]').change(function(ev) {
+      var input = $(ev.target);
+      var email = input.val();
+      resolveUser(email, function(user) {
+        input.data("userid", user['_id']);
+      });
+    });
+
+
+    if ((campaign && campaign['isAdmin']) || !campaign) {
+      $("#saveButton").click(function(ev) {
+        var owners = [];
+        $("#ownersList li").each(function(index) {
+          owners.push($(this).data('userid'));
+        });
+
+        var updateDoc = Object.assign(campaign || {}, {
+          'name': $('input[name="name"]').val(),
+          'type': $('select[name="type"]').val(),
+          'billingOwner': $('input[name="billingOwner"]').data('userid'),
+          'owners': owners
+        });
+
+        $.ajax({
+          type: 'put',
+          url: '/api/campaigns',
+          contentType: 'application/json',
+          data: JSON.stringify(updateDoc),
+        }).done(function(data) {
+          data = JSON.parse(data);
+          if (data["status"] != "OK") {
+            showAlert("danger", data["error_message"]);
+          } else {
+            if (!campaign) {
+              showAlert("success",
+                `<strong>Campaign successfully saved!</strong>
+                <p>Before you can use your campaign, you need to set up billing!</p>`);
+            } else {
+              showAlert("success",
+                `<strong>Campaign successfully saved!</strong>`);
+            }
+            updateDoc['_id'] = data['result'];
+            campaign = updateDoc;
+          }
+        });
+      });
+      $("#updateBillingButton").click(function(ev) {
+        var form = $("#billingForm");
+        if (!campaign) {
+          showAlert("danger",
+              "You must save and create this campaign before setting up billing",
+              function(elem) { form.after(elem) });
+          return;
+
+        }
+        var stripeResponseHandler = function(status, response) {
+          if (response.error) {
+            showAlert("danger", response.error.message, function(elem) { form.before(elem); });
+            return;
+          }
+
+          var updatePayload = JSON.stringify({
+            'campaign': campaign['_id'],
+            'token': response.id,
+          });
+
+          $.ajax({
+            type: 'post',
+            url: '/api/setStripeToken',
+            contentType: 'application/json',
+            data: updatePayload
+          }).done(function(data) {
+            data = JSON.parse(data);
+            if (data["status"] != "OK") {
+              showAlert("danger", data['error_message'], function(elem) { form.after(elem); });
+            } else {
+              if (campaign['phoneNumbers'].length == 0) {
+                showAlert("success",
+                  `<strong>Billing successfully saved!</strong>
+                  <p>Before you can use your campaign, you need to set up at least one phone
+                     number!</p>`,
+                  function(elem) { form.after(elem); });
+              } else {
+                showAlert("success",
+                  `<strong>Billing successfully saved!</strong>`,
+                  function(elem) { form.after(elem); });
+              }
+            }
+          });
+        };
+
+        Stripe.card.createToken(form, stripeResponseHandler);
+      });
+
+      $("#buyPhoneNumber").click(function(ev) {
+        ev.preventDefault();
+        var form = $("#buyPhoneNumberForm");
+        if (!campaign) {
+          showAlert("danger",
+              "You must save and create this campaign before buying any phone numbers",
+              function(elem) { form.after(elem) });
+          return;
+        }
+        var reqDoc = {
+          contains: form.find('input[name="contains"]').val(),
+          areaCode: form.find('input[name="areaCode"]').val(),
+          tollFree: form.find('input[name="tollFree"]').prop('checked'),
+          campaignId: campaign['_id'],
+        };
+        $.getJSON('/api/buyPhoneNumber', reqDoc, function(data) {
+          if (data['status'] == 'OK') {
+            var phoneListItem = $(phoneListItemTemplate({phoneNumber: data['result']}));
+            phoneListItem.find("button").click(onRemovePhoneNumber);
+            $("#phoneNumbersList").append(phoneListItem);
+          } else {
+            showAlert("danger", data['error_message'], function(elem) { form.after(elem) });
+          }
+        });
+      });
+    }
+
+  </script>
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', '%% googleAnalyticsKey %%', 'auto');
+    ga('send', 'pageview');
+  </script>
+</html>

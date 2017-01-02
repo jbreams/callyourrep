@@ -7,7 +7,7 @@ from flask.ext.pymongo import PyMongo, ASCENDING, DESCENDING
 import jsonschema
 
 callScriptSchema = {
-    '$schema': 'https://www.callyourrep.us/static/campaignSchema.json',
+    '$schema': 'https://www.callyourrep.us/schemas/callScriptSchema.json',
     'type': 'object',
     'properties': {
         '_id': { 'type': 'string', 'pattern': '^[A-Fa-f\d]{24}$' },
@@ -32,7 +32,7 @@ callScriptSchema = {
                     },
                     {
                         'type': 'string',
-                        'pattern': '^\+?[1-9]\d{1,14}$',
+                        'pattern': '^[A-Fa-f\d]{24}$',
                     },
                 ],
             },
@@ -48,77 +48,101 @@ callScriptSchema = {
         'title',
         'appliesTo',
         'text',
+        'phoneNumber',
     ]
 }
+@app.route('/schemas/callScriptSchema.json')
+def getCallScriptSchema():
+    return json.dumps(callScriptSchema)
 
 @app.route('/api/callScripts', methods=['PUT'])
 @users.loginRequired
-def putCallScript():
-    newCallScript = request.get_json()
+def putCallScriptApi():
+    try:
+        return putCallScript(request.get_json())
+    except Exception as e:
+        return json.dumps({'status': 'FAIL', 'error_message': str(e)})
+
+def putCallScript(newCallScript):
     jsonschema.validate(newCallScript, callScriptSchema)
     newCallScriptId = ObjectId()
     if '_id' in newCallScript:
         newCallScript['_id'] = ObjectId(newCallScript['_id'])
-        del newCallScript['_id']
+        newCallScriptId = newCallScript['_id']
 
     newCallScript['campaign'] = ObjectId(newCallScript['campaign'])
-    newCallScript['createdBy'] = ObjectId(newCallScript['createdBy'])
-
-    campaignDoc = mongo.db.campaigns.find_one({'_id': newCallScript['campaign']})
-    if not campaignDoc:
-        return json.dumps({'status': 'FAIL', '_id': newCallScriptId,
-            'error_message': 'Campaign {} not found'.format(newCallScript['campaign'])})
-    if 'owners' in campaignDoc and request.userId not in campaignDoc['owners']:
-        return json.dumps({'status': 'FAIL', '_id': newCallScriptId,
-            'error_message': 'User not allowed to modify campaign {}'.format(
-                newCallScript['campaign'])})
-    if 'phoneNumber' in newCallScript and \
-            newCallScript['phoneNumber'] not in campaignDoc['phoneNumbers']:
-        return json.dumps({'status': 'FAIL', '_id': newCallScriptId,
-            'error_message': 'Campaign {} does not own phone number {}'.format(
-                newCallScript['campaign'], newCallScript['phoneNumber'])})
-
-    if 'owners' not in campaignDoc:
-        oldScriptDoc = mongo.db.callscripts.find_one({'_id': newCallScriptId})
-        if oldScriptDoc and request.userId != oldScriptDoc['createdBy']:
-            return json.dumps({'status': 'FAIL', '_id': newCallScriptId,
-                'error_message': 'Cannot update call script you did not create' })
+    for i, v in enumerate(newCallScript['appliesTo']):
+        try:
+            v = ObjectId(v)
+        except Exception:
+            continue
+        newCallScript['appliesTo'][i] = v
 
     oldCallScript = mongo.db.callscripts.find_one({'_id': newCallScriptId})
     if not oldCallScript:
         newCallScript['createdBy'] = request.userId
     else:
         newCallScript['createdBy'] = oldCallScript['createdBy']
-        newCallScript['campaign'] = oldcallScript['campaign']
+        newCallScript['campaign'] = oldCallScript['campaign']
 
-    mongo.db.callscripts.replace_one(
-        {'_id': newCallScriptId},
-        newCallScript,
-    )
+    campaignDoc = mongo.db.campaigns.find_one({'_id': newCallScript['campaign']})
+    if not campaignDoc:
+        raise Exception('Campaign {} not found'.format(newCallScript['campaign']))
+
+    if 'owners' in campaignDoc and request.userId not in campaignDoc['owners']:
+        raise Exception('User not allowed to modify campaign {}'.format(
+                newCallScript['campaign']))
+
+    if newCallScript['phoneNumber'] not in campaignDoc['phoneNumbers']:
+        raise Exception('Campaign {} does not own phone number {}'.format(
+            newCallScript['campaign'], newCallScript['phoneNumber']))
+
+    if 'owners' not in campaignDoc:
+        oldScriptDoc = mongo.db.callscripts.find_one({'_id': newCallScriptId})
+        if oldScriptDoc and request.userId != oldScriptDoc['createdBy']:
+            raise Exception('Cannot update call script you did not create')
+
+    if not oldCallScript:
+        mongo.db.callscripts.insert_one(newCallScript)
+    else:
+
+        mongo.db.callscripts.replace_one(
+            {'_id': newCallScriptId},
+            newCallScript,
+        )
 
     return json.dumps({'status': 'OK', 'result': str(newCallScriptId) })
 
 @app.route('/api/callScripts', methods=['GET'])
 @users.loginOptional
-def getCallScripts():
-    callScriptId = request.args.get('id', None, type=ObjectId)
-    campaignId = request.args.get('campaign', None, type=ObjectId)
-    searchTerms = request.args.get('searchTerms', None, type=str)
+def getCallScriptsApi():
+    try:
+        callScriptId = request.args.get('id', None, type=ObjectId)
+        campaignId = request.args.get('campaign', None, type=ObjectId)
+        searchTerms = request.args.get('searchTerms', None, type=str)
 
+        return json.dumps({'status': 'OK',
+            'result': resultgetCallScripts(callScriptId, campaignId, searchTerms)})
+    except Exception as e:
+        return json.dumps({'status': 'FAIL', 'error_message': e})
+
+def getCallScripts(callScriptId, campaignId, searchTerms):
     query = {}
     if callScriptId:
+        if not isinstance(callScriptId, ObjectId):
+            callScriptId = ObjectId(callScriptId)
         query['_id'] = callScriptId
 
     if campaignId:
+        if not isinstance(campaignId, ObjectId):
+            campaignId = ObjectId(campaignId)
         campaignDoc = mongo.db.campaigns.find_one({'_id': campaignId})
         if not campaignDoc:
-            return json.dumps({'status': 'FAIL',
-                'error_message': 'Campaign {} does not exist}'.format(campaignId)})
+            raise Exception('Campaign {} does not exist'.format(campaignId))
 
         if campaignDoc['type'] == 'private' and \
             (not request.userId or request.userId not in campaignDoc['owners']):
-            return json.dumps({'status': 'FAIL',
-                'error_message': 'Campaign {} does not exist}'.format(campaignId)})
+            raise Exception('Campaign {} does not exist'.format(campaignId))
 
         query['campaign'] = campaignId
     else:
@@ -143,14 +167,12 @@ def getCallScripts():
         }
 
     cursor = mongo.db.callscripts.find(query)
-    res = {
-        'status': 'OK',
-        'result': []
-    }
+    res = {}
     for c in cursor:
         c['_id'] = str(c['_id'])
         c['campaign'] = str(c['campaign'])
-        res['result'].append(c)
+        c['createdBy'] = str(c['createdBy'])
+        res[c['_id']] = c
 
-    return json_util.dumps(res)
+    return res
 
