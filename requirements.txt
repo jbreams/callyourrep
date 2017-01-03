@@ -1,13 +1,14 @@
+argon2_cffi
 flask
 flask-pymongo
 flask-sslify
 gunicorn
-phonenumbers
+jsonschema
 passlib
+phonenumbers
 pymongo
 pytz
 pyyaml
 requests
-twilio
-jsonschema
 stripe
+twilio
