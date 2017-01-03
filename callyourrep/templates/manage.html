@@ -45,21 +45,7 @@
           </span>
         </div>
         <span class="cyr-flex"></span>
-        <ul class="nav navbar-nav">
-          <li class="dropdown">
-            <a href="#"
-               class="dropdown-toggle"
-               data-toggle="dropdown"
-               role="button"
-               aria-haspopup="true"
-               aria-expanded="false">
-              jbreams@gmail.com <span class="caret"></span>
-            </a>
-            <ul class="dropdown-menu">
-              <li><a href="/signout">Sign out</a></li>
-            </ul>
-          </li>
-        </ul>
+        <ul class="nav navbar-nav" id="userMenu"></ul>
       </div>
       <div class="cyr-row cyr-page-header">
         <h3>Manage your campaign</h3>
@@ -142,6 +128,35 @@
       <div class="panel panel-default">
         <div class="panel-heading">
           <h3 class="panel-title">Contacts</h3>
+        </div>
+        <div class="panel-body">
+          <form class="form-inline" action="#" id="contactsSearch">
+            <div class="form-group">
+              <label for="type">
+                Type
+              </label>
+              <select name="type" class="form-control">
+                <option value="all">All</option>
+                <option value="rep">House Representative</option>
+                <option value="sen">Senator</option>
+                <option value="stateRep">State House Representative</option>
+                <option value="stateSen">State Senator</option>
+                <option value="custom" selected>Custom</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="search">
+                Search
+              </label>
+              <input type="text"
+                     name="searchTerms"
+                     class="form-control"
+                     placeholder="Search terms...">
+            </div>
+            <div class="form-group">
+              <button type="button" name="search" class="form-control">Search</button>
+            </div>
+          </form>
         </div>
         <div id="contactsList">
 
@@ -304,17 +319,56 @@
       </ul>
     </div>
   </script>
+  <script id="user-menu-template" type="text/x-handlebars-template">
+    <ul class="nav navbar-nav" id="userMenu">
+        <li class="dropdown">
+        <a href="#"
+           class="dropdown-toggle"
+           data-toggle="dropdown"
+           role="button"
+           aria-haspopup="true"
+           aria-expanded="false">
+          {{email}} <span class="caret"></span>
+        </a>
+        <ul class="dropdown-menu">
+          <li><a href="/signout">Sign out</a></li>
+        </ul>
+      </li>
+    </ul>
+  </script>
   <script>
 var campaigns = %% campaigns | safe %%;
 var campaignId = %% campaignId | safe %%;
 var callScripts = %% callScripts | safe %%;
-var contacts = %% contacts | safe %%;
+var loggedInUser = %% loggedInUser | safe %%;
+var contacts = {};
 
 var callScriptsListTemplate = Handlebars.compile($("#call-scripts-list-template").html());
 $("#callScriptsList").replaceWith(callScriptsListTemplate({callScripts: callScripts}));
 
 var contactsListTemplate = Handlebars.compile($("#contacts-list-template").html());
-$("#contactsList").replaceWith(contactsListTemplate({contacts: contacts}));
+(function() {
+  var contactsSearch = $("#contactsSearch");
+  var searchHandler = function(ev) {
+    ev.preventDefault();
+    var searchDict = {
+      'type': contactsSearch.find('select[name="type"]').val(),
+      'search': contactsSearch.find('input[name="searchTerms"]').val(),
+    };
+    $.getJSON("/api/contacts", searchDict, function(data) {
+      if (data['status'] == "OK") {
+        contacts = data['result'];
+        $("#contactsList").replaceWith(contactsListTemplate({contacts: contacts}));
+      } else {
+        var alertBox = $("#callScriptsError");
+        alertBox.text(data["error_message"]);
+        alertBox.removeClass("hidden");
+      }
+    });
+  };
+  contactsSearch.submit(searchHandler);
+  contactsSearch.find('button[name="search"]').click(searchHandler).click();
+}());
 
 var campaignSelectorTemplate = Handlebars.compile($("#campaign-selector-template").html());
 $("#campaignSelector").replaceWith(campaignSelectorTemplate({
@@ -322,6 +376,9 @@ $("#campaignSelector").replaceWith(campaignSelectorTemplate({
   campaigns: campaigns,
   currentCampaignId: campaignId,
 }));
+
+var userMenuTemplate = Handlebars.compile($("#user-menu-template").html());
+$("#userMenu").replaceWith(userMenuTemplate(loggedInUser));
 
 $('#callScriptsModal').on('show.bs.modal', function (event) {
   var button = $(event.relatedTarget) // Button that triggered the modal
@@ -335,11 +392,13 @@ $('#callScriptsModal').on('show.bs.modal', function (event) {
   var phoneNumberSelect = modal.find('select[name="phoneNumber"]');
   phoneNumberSelect.empty();
   var campaignPhoneNumbers = campaigns[campaignId]['phoneNumbers']
-  for (var i = 0; i < campaignPhoneNumbers.length; i++) {
-    phoneNumberSelect.append("<option>" + campaignPhoneNumbers[i] + "</option>");
+  if (campaignPhoneNumbers) {
+    for (var i = 0; i < campaignPhoneNumbers.length; i++) {
+      phoneNumberSelect.append("<option>" + campaignPhoneNumbers[i] + "</option>");
+    }
   }
   var phoneNumberDiv = modal.find("#callScriptsModalPhoneNumberDiv");
-  if (campaignPhoneNumbers.length < 2) {
+  if (!campaignPhoneNumbers || campaignPhoneNumbers.length < 2) {
     phoneNumberDiv.hide();
   } else {
     phoneNumberDiv.show();

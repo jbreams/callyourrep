@@ -2,7 +2,7 @@ from bson import json_util
 from bson.objectid import ObjectId
 from callyourrep import app, mongo, utc, users
 from datetime import datetime, timedelta
-from flask import Flask, request, json, render_template, session, redirect, url_for
+from flask import Flask, request, json, session, abort
 from flask.ext.pymongo import PyMongo, ASCENDING, DESCENDING
 import jsonschema
 
@@ -108,13 +108,15 @@ def getContactsApi():
         lat = request.args.get('lat', None, type=float)
         lng = request.args.get('lng', None, type=float)
         campaignId = request.args.get('campaign', None, type=ObjectId)
+        contactType = request.args.get('type', None, type=str)
+        search = request.args.get('search', None, type=str)
 
         return json.dumps({'status': 'OK',
-            'result': getContacts(contactId, lat, lng, campaignId)})
+            'result': getContacts(contactId, lat, lng, campaignId, contactType, search)})
     except Exception as e:
         return json.dumps({'status': 'FAIL', 'error_message': str(e)})
 
-def getContacts(contactId, lat, lng, campaignId):
+def getContacts(contactId=None, lat=None, lng=None, campaignId=None, contactType=None, search=None):
     checkPerms = CheckContactForUser()
     if campaignId and not isinstance(campaignId, ObjectId):
         campaignId = ObjectId(campaignId)
@@ -150,7 +152,17 @@ def getContacts(contactId, lat, lng, campaignId):
             query['campaign'] = campaignId
 
     elif campaignId:
-        query = { 'campaign': campaignId }
+        query['campaign'] = campaignId
+
+    if contactType and contactType != 'all':
+        query['type'] = contactType
+
+    if search:
+        query['$text'] = {
+            '$search': search,
+            '$language': 'en',
+            '$caseSensitive': False,
+        }
 
     contactCursor = mongo.db.contacts.find(query)
     def cleanContact(c):
@@ -160,3 +172,4 @@ def getContacts(contactId, lat, lng, campaignId):
         return c
     contacts = dict([ (str(c['_id']), cleanContact(c)) for c in contactCursor if checkPerms(c) ])
     return contacts
+

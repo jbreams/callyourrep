@@ -243,14 +243,15 @@ def manage():
             else:
                 firstPublic = i
         campaignId = firstPrivate if firstPrivate else firstPublic
+    user = users.getUser(None, request.userId)
 
     return render_template('manage.html',
         googleAPIKey=app.config['GOOGLE_API_KEY'],
         googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'],
         callScripts=json.dumps(callscripts.getCallScripts(None, campaignId, None)),
-        contacts=json.dumps(contacts.getContacts(None, None, None, campaignId)),
         campaignId=json.dumps(campaignId),
         campaigns=json.dumps(campaignsList),
+        loggedInUser=json.dumps(user),
     )
 @app.route('/manageCampaign')
 @users.loginRequired
@@ -265,9 +266,10 @@ def manageCampaign():
         else:
             campaign = campaign[str(campaignId)]
     usersList = [ users.getUser(None, request.userId) ]
-    if campaign:
+    if campaign and 'owners' in campaign:
         for o in campaign['owners']:
             usersList.append(users.getUser(None, o))
+    if campaign and 'billingOwner' in campaign:
         if campaign['billingOwner']:
             usersList.append(users.getUser(None, campaign['billingOwner']))
 

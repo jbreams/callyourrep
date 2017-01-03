@@ -68,7 +68,7 @@ def loginOptional(f):
         setattr(request, 'userId', sessionDoc['user'])
 
         campaignsCursor = mongo.db.campaigns.find({'owners': sessionDoc['user']})
-        campaigns = [ c._id for c in campaignsCursor ]
+        campaigns = [ c['_id'] for c in campaignsCursor ]
         setattr(request, 'userOwnerOf', campaigns)
 
         return f(*args, **kwargs)

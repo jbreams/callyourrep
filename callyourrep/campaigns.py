@@ -97,7 +97,7 @@ def getCampaigns(campaignId):
     campaigns = mongo.db.campaigns.find(query)
     def cleanCampaign(c):
         if not request.userId or request.userId not in c['owners']:
-            for k in [ 'owners', 'billingOwner', 'expiresOn' ]:
+            for k in [ 'owners', 'billingOwner', 'expiresOn', 'phoneNumbers' ]:
                 if k in c:
                     del c[k]
             c['isAdmin'] = False

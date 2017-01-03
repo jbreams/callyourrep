@@ -1,9 +1,12 @@
 import yaml
 import pymongo
+from bson.objectid import ObjectId
 import requests
 from lxml import etree
 from StringIO import StringIO
 import os
+import base64
+import phonenumbers
 
 # Little lambda to get a prettified ordinal version of numbers for the "1st, 2nd, 3rd district"
 def getOrdinal(num):
@@ -15,43 +18,6 @@ legislators = None
 with open("legislators-current.yaml", "r") as yamlFp:
     legislators = yaml.load(yamlFp)
 
-committees = {}
-with open('committees-current.yaml', 'r') as yamlFp:
-    rawCommittees = yaml.load(yamlFp)
-    for committee in rawCommittees:
-        committees[committee['thomas_id']] = {
-            'name': committee['name'],
-            'url': committee['url'],
-            'phone': committee.get('phone', None),
-            'jurisdiction': committee.get('jurisdiction', None),
-        }
-
-        if 'subcommittees' in committee:
-            for sub in committee['subcommittees']:
-                committees[committee['thomas_id'] + sub['thomas_id']] = {
-                    'name': "{0} sub-committee on {1}".format(
-                        committee['name'], sub['name']),
-                    'url': committee['url'],
-                    'phone': committee.get('phone', None),
-                }
-
-memberToCommittee = {}
-with open('committee-membership-current.yaml', 'r') as yamlFp:
-    committeeMembership = yaml.load(yamlFp)
-    for (committee, members) in committeeMembership.items():
-        for member in members:
-            if member['bioguide'] not in memberToCommittee:
-                memberToCommittee[member['bioguide']] = [
-                        { 'committee': committee, 'rank': getOrdinal(member['rank']) }
-                ]
-            else:
-                memberToCommittee[member['bioguide']].append(
-                    {'committee': committee, 'rank': getOrdinal(member['rank']) })
-
-
-client = pymongo.MongoClient(os.environ.get("MONGODB_URI", "mongodb://localhost:27017/callyourrep"))
-db = client.get_default_database()
-
 def resolveDistrict(term):
     districtName = term["state"]
     if term["type"] == "rep":
@@ -61,18 +27,13 @@ def resolveDistrict(term):
         return ("states/{0}".format(districtName),
                 "{0}-{1}".format(districtName, term["state_rank"]))
 
-def getBio(bioguideId):
-    rawGuideHTML = requests.get(
-        "http://bioguide.congress.gov/scripts/biodisplay.pl?index=" + bioguideId)
-    parser = etree.HTMLParser()
-    guideXmlTree = etree.parse(StringIO(rawGuideHTML.text), parser)
-    return guideXmlTree.xpath('/html/body/table[2]/tr/td[2]/p/text()')[0].replace(
-        '\n', '').replace('\r', '')
+client = pymongo.MongoClient(os.environ.get("MONGODB_URI", "mongodb://localhost:27017/callyourrep"))
+db = client.get_default_database()
 
 def writeLegislators():
-    districts = db['districts']
+    districts = db['contacts']
     districts.drop();
-    districts.create_index([('district', pymongo.GEOSPHERE)])
+    districts.create_index([('geoFence', pymongo.GEOSPHERE)])
     for rep in legislators:
         currentTerm = rep["terms"][-1]
         districtPath, districtName = resolveDistrict(currentTerm)
@@ -102,20 +63,25 @@ def writeLegislators():
                     getOrdinal(currentTerm['district']),
                     currentTerm.get("party"))
 
+            picture = requests.get(
+                "https://theunitedstates.io/images/congress/225x275/{0}.jpg".format(
+                    rep["id"]["bioguide"]))
+            picture.raise_for_status()
+            picture = "data:image/jpeg;base64,{0}".format(base64.b64encode(picture.content))
+
+            phoneNumber  = phonenumbers.format_number(
+                phonenumbers.parse(currentTerm.get("phone"), 'US'),
+                phonenumbers.PhoneNumberFormat.E164)
+
             districts.insert({
-                '_id': districtName,
-                'district': geoData,
-                'repName': rep["name"]["official_full"],
-                'fullTitle': fullTitle,
-                'phone': currentTerm.get("phone"),
-                'contactForm': currentTerm.get("contact_form"),
-                'mailingAddress': currentTerm.get("address"),
-                'fax': currentTerm.get('fax'),
-                'pictureId': rep["id"]["bioguide"],
-                'party': currentTerm.get("party"),
+                'name': rep['name']['official_full'],
+                'title': fullTitle,
                 'type': currentTerm.get("type"),
-                'bio': getBio(rep['id']['bioguide']),
-                'committees': memberToCommittee[rep['id']['bioguide']],
+                'visibility': 'public',
+                'geoFence': geoData,
+                'phoneNumber': phoneNumber,
+                'image': picture,
+                'campaign': ObjectId('5861961b2cb92874cb05a268'),
             })
         except Exception as e:
             print "Error writing {}: ({})".format(districtName, e)
@@ -123,8 +89,3 @@ def writeLegislators():
         print "Wrote {}".format(districtName)
 
 writeLegislators()
-committeesColl = db['committees']
-committeesColl.drop()
-for (idfield, data) in committees.items():
-    data['_id'] = idfield
-    committeesColl.insert(data)
