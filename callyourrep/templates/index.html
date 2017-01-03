@@ -78,10 +78,6 @@
             <div style="margin-right: 1rem">
               <span class="badge">{{#if callCount }}{{callCount}}{{else}}0{{/if}}</span> calls
             </div>
-            <div style="margin-right: 1rem">
-              <span class="badge">
-                {{#if searchCount }}{{searchCount}}{{else}}0{{/if}}</span> searches
-            </div>
 
             <div class="btn-group">
               <button type="button" class="btn btn-default dropdown-toggle btn-xs"
@@ -90,17 +86,17 @@
               </button>
               <ul class="dropdown-menu cyr-share-dropdown">
                 <li>
-                  <a href="https://www.facebook.com/sharer/sharer.php?u=https%3A//callyourrep.us/caller?topicId={{_id.$oid}}">
+                  <a href="https://www.facebook.com/sharer/sharer.php?u=https%3A//callyourrep.us/caller?topicId={{_id}}">
                     <i class="fa fa-2x fa-facebook-official" aria-hidden="true"></i>
                   </a>
                 </li>
                 <li>
-                  <a href="https://twitter.com/home?status=I%20just%20used%20callyourrep.us%20to%20call%20my%20congress%20person!%20Call%20you%20rep%20at%20%20https%3A//callyourrep.us/caller?topicId={{_id.$oid}}">
+                  <a href="https://twitter.com/home?status=I%20just%20used%20callyourrep.us%20to%20call%20my%20congress%20person!%20Call%20you%20rep%20at%20%20https%3A//callyourrep.us/caller?topicId={{_id}}">
                     <i class="fa fa-2x fa-twitter-square" aria-hidden="true"></i>
                   </a>
                 </li>
                 <li>
-                  <a href="//www.reddit.com/submit" onclick="window.location = '//www.reddit.com/submit?url=' + encodeURIComponent('https://callyourrep.us/caller?topicId={{_id.$oid}}'); return false">
+                  <a href="//www.reddit.com/submit" onclick="window.location = '//www.reddit.com/submit?url=' + encodeURIComponent('https://callyourrep.us/caller?topicId={{_id}}'); return false">
                     <i class="fa fa-2x fa-reddit-square" aria-hidden="true"></i>
                   </a>
                 </li>
@@ -115,24 +111,10 @@
         {{text}}
       </div>
       <div class="panel-footer cyr-row">
-        <div class="cyr-col center">
-          {{#if takenFrom }}
-            <div class="cyr-row left small">
-              <button type="button"
-                      class="btn btn-default btn-xs"
-                      data-container="body"
-                      data-toggle="popover"
-                      data-placement="top"
-                      data-content="Taken from: {{takenFrom}}">
-                Source
-              </button>
-            </div>
-          {{/if}}
-        </div>
         <span class="cyr-flex"></span>
         <div class="cyr-col center">
           <div class="cyr-row right">
-            <a class="btn btn-primary right" href="/caller?topicId={{_id.$oid}}">
+            <a class="btn btn-primary right" href="/caller?topicId={{_id}}">
               Use This Script
             </a>
           </div>
@@ -166,6 +148,7 @@
     })();
     var template = Handlebars.compile($("#topics-results-template").html());
 
+    var resultData;
     var searchTopics = function(ev) {
         if (ev) {
             ev.preventDefault();
@@ -176,9 +159,10 @@
             data = { search: topic }
         }
         var doneFn = function(data)  {
+          resultData = data;
           var results = $("#results");
           results.empty();
-          results.append(template({topics: data}));
+          results.append(template({topics: data['result']}));
 
           $(function () {
               $('[data-toggle="popover"]').popover()
@@ -191,11 +175,11 @@
         };
 
         if (topic.length) {
-            $.getJSON("/api/topics.json", { search: topic })
+            $.getJSON("/api/callScripts", { searchTerms: topic })
               .done(doneFn)
               .fail(errorFn);
         } else {
-          $.getJSON("/api/topics.json")
+          $.getJSON("/api/callScripts")
             .done(doneFn)
             .fail(errorFn);
         }

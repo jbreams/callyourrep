@@ -26,6 +26,7 @@ contactSchema = {
             }
         },
         'geoFence': { 'type': 'object' },
+        'calls': { 'type': 'number' },
     },
     'required': [
         'name',
@@ -142,8 +143,10 @@ def getContacts(contactId=None, lat=None, lng=None, campaignId=None, contactType
         query = {
             'geoFence': {
                 '$geoIntersects': {
-                    'type': 'Point',
-                    'coordinates': [ lng, lat ],
+                    '$geometry': {
+                        'type': 'Point',
+                        'coordinates': [ lng, lat ],
+                    }
                 }
             }
         }

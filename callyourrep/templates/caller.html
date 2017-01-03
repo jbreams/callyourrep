@@ -34,7 +34,6 @@
     <script
         src="https://maps.google.com/maps/api/js?libraries=places&key=%% googleAPIKey %%"></script>
     <script src="https://static.twilio.com/libs/twiliojs/1.2/twilio.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/rollups/sha1.js"></script>
   </head>
   <body>
     <div class="content-wrapper cyr-grid cyr-col">
@@ -71,35 +70,35 @@
   <div class="cyr-col panel panel-default">
     <div class="panel-heading">
       <ul class="nav nav-pills nav-justified" role="tablist">
-        {{#each districts}}
+        {{#each contacts}}
           <li role="presentation" {{#if @first}}class="active"{{/if}}>
             <a href="#{{_id}}" aria-controls="{{_id}}" role="tab" data-toggle="tab">
-              {{repName}}
+              {{name}}
             </a>
           </li>
         {{/each}}
       </ul>
     </div>
     <div class="panel-body tab-content">
-      {{#each districts}}
+      {{#each contacts}}
       <div role="tabpanel" class="tab-pane {{#if @first}}active{{/if}}" id="{{_id}}">
           <div class="cyr-row">
             <img class="rep-picture"
-                 src="https://theunitedstates.io/images/congress/225x275/{{pictureId}}.jpg">
+                 src="{{image}}">
             <div class="cyr-col">
-              <h3>{{repName}}</h3>
-              <h4>{{fullTitle}}</h4>
+              <h3>{{name}}</h3>
+              <h4>{{title}}</h4>
             </div>
           </div>
           <div class="list-group">
-            {{#if ../topic}}
+            {{#if ../callscript}}
               <div class="list-group-item">
                 <h3 class="list-group-item-heading">
                   <span class="glyphicon glyphicon-comment" aria-hidden="true"></span>
                   Call Script
                 </h3>
                 <p class="list-group-item-text">
-                <div class="lead">{{../topic.text}}</div>
+                <div class="lead">{{../callscript.text}}</div>
                 </p>
               </div>
             {{/if}}
@@ -199,13 +198,13 @@
       }
     })();
     var repsPaneTemplate = Handlebars.compile($("#reps-pane-template").html());
-    var topic = %% topicDict | safe %%;
-    var addressHash = "";
-    var districts = {};
+    var contacts = {};
+    var topic = %% topicData | safe %%;
+    var geoLocation;
 
     var shareTarget = "";
     if (topic) {
-      shareTarget = "?topicId=" + topic["_id"]["$oid"];
+      shareTarget = "?topicId=" + topic["_id"];
     }
     var shareTemplate = Handlebars.compile($("#share-dropdown-template").html());
     $("#share-dropdown-container").append(shareTemplate({target: shareTarget}));
@@ -222,22 +221,23 @@
     var autocomplete = new google.maps.places.Autocomplete($("#pac-input")[0]);
     autocomplete.addListener('place_changed', function() {
       var place = autocomplete.getPlace();
-      var geoLocation = place.geometry.location;
+      geoLocation = place.geometry.location;
       var query = {
         lat: geoLocation.lat(),
-        lon: geoLocation.lng(),
+        lng: geoLocation.lng(),
       };
-      addressHash = CryptoJS.SHA1(place.formattedAddress);
 
-      $.getJSON("/api/districts.json", query)
-        .done(function(json) {
-          json.forEach(function(cb) {
-            districts[cb['_id']] = cb;
-          });
+      $.getJSON("/api/contacts", query)
+        .done(function(result) {
+          if (result['status'] != 'OK') {
+            errorAlert("Error getting a list of contacts: " + result['error_message']);
+            return;
+          }
+          contacts = result['result'];
 
           var resultsPane = $("#results-container");
           resultsPane.empty();
-          resultsPane.append(repsPaneTemplate({districts: json, topic: topic}));
+          resultsPane.append(repsPaneTemplate({contacts: contacts, callscript: topic}));
           $("#search-container").slideUp();
           resultsPane.slideDown();
         })
@@ -247,30 +247,30 @@
     });
 
     var curTimerId;
-    var makeCall = function(districtId) {
-      var callButton = $("#call-them-button-" + districtId);
-      var district = districts[districtId];
-      var timerWell = $("#call-timer-" + districtId);
+    var makeCall = function(contactId) {
+      var callButton = $("#call-them-button-" + contactId);
+      var district = contacts[contactId];
+      var timerWell = $("#call-timer-" + contactId);
       var topicId = null;
       if (topic) {
-        topicId = topic._id.$oid;
+        topicId = topic['_id'];
       }
 
       if (callButton.text().trim() == "Call them") {
         this.connection = Twilio.Device.connect({
-          PhoneNumber: district['phone'],
-          AddressHash: addressHash,
-          TopicId: topicId,
+          CYRContact: district['_id'],
+          CYRLocation: geoLocation.toString(),
+          CYRCallScript: topicId,
         });
         Twilio.Device.disconnect(function() {
-          makeCall(districtId);
+          makeCall(contactId);
         });
 
         callButton.text("Hang up");
         callButton.removeClass("btn-primary");
         callButton.addClass("btn-danger");
 
-        $("#call-tips-" + districtId).slideDown();
+        $("#call-tips-" + contactId).slideDown();
 
         timerWell.data = {
           count: 1200,

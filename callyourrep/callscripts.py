@@ -42,6 +42,7 @@ callScriptSchema = {
         'expiresOn': { 'type': 'string', 'format': 'date-time' },
         'phoneNumber': { 'type': 'string', 'pattern': '^(\+?[1-9]\d{1,14})$' },
         'createdBy': { 'type': 'string', 'pattern': '^[A-Fa-f\d]{24}$' },
+        'calls': { 'type': 'number' },
     },
     'required': [
         'campaign',
@@ -122,7 +123,7 @@ def getCallScriptsApi():
         searchTerms = request.args.get('searchTerms', None, type=str)
 
         return json.dumps({'status': 'OK',
-            'result': resultgetCallScripts(callScriptId, campaignId, searchTerms)})
+            'result': getCallScripts(callScriptId, campaignId, searchTerms)})
     except Exception as e:
         return json.dumps({'status': 'FAIL', 'error_message': e})
 
