@@ -10,3 +10,4 @@ pyyaml
 requests
 twilio
 jsonschema
+stripe
