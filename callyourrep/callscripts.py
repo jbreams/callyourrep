@@ -101,7 +101,7 @@ def approveCallScriptApi():
 def suggestCallScriptApi():
     try:
         newCallScript = request.get_json()
-        if not request.userId:
+        if not request.userId or if 'g-recaptcha-response' in newCallScript:
             if 'g-recaptcha-response' not in newCallScript:
                 raise Exception("No recaptcha response! Are you a robot!?")
             captchaResult = requests.post("https://www.google.com/recaptcha/api/siteverify",
