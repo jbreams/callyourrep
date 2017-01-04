@@ -52,18 +52,6 @@ import callyourrep.campaigns as campaigns
 import callyourrep.contacts as contacts
 import callyourrep.calls as calls
 
-@app.route('/api/topics.json', methods=['GET'])
-def getTopics():
-    search = request.args.get("search")
-    if not search:
-        topics = mongo.db.topics.find().sort('searchCount', DESCENDING).limit(4)
-    else:
-        terms = { '$text': {
-            '$search': str(search), '$language': 'en', '$caseSensitive': False}}
-        topics = mongo.db.topics.find(terms).sort(
-                'searchCount', DESCENDING)
-    return json_util.dumps([ t for t in topics ])
-
 @app.route('/api/twilioToken')
 def token():
     capability = TwilioCapability(
@@ -77,7 +65,9 @@ def token():
 def index2():
     return render_template('index.html',
         googleAPIKey=app.config['GOOGLE_API_KEY'],
-        googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'])
+        googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'],
+        ogUrl=app.config['BASE_URL'],
+        ogBaseUrl=app.config['BASE_URL'])
 
 @app.route('/manage')
 @users.loginRequired
@@ -110,7 +100,6 @@ def manageCampaign():
     campaign = None
     if campaignId:
         campaign = campaigns.getCampaigns(campaignId)
-        print campaign
         if campaign and str(campaignId) not in campaign:
             campaign = None
         else:
@@ -139,23 +128,29 @@ def caller():
     topicData = None
     if topicId:
         try:
-            print topicId
             topicData = callscripts.getCallScripts(ObjectId(topicId), None, None)
-            print topicData
             if topicData and topicId in topicData:
                 topicData = topicData[topicId]
         except Exception as e:
             print e
             pass
+    ogUrl = app.config['BASE_URL']
+    ogDescription = "Look up your congress person, and call them"
     if not topicData:
         topicData = "null"
+        ogDescription += "!"
     else:
+        ogUrl += "?topicId={0}".format(topicId)
+        ogDescription += " about {0}!".format(topicData['title'])
         topicData = json.dumps(topicData)
 
     return render_template('caller.html',
         googleAPIKey=app.config['GOOGLE_API_KEY'],
         googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'],
-        topicData=topicData)
+        topicData=topicData,
+        ogUrl=ogUrl,
+        ogDescription=ogDescription,
+        ogBaseUrl=app.config['BASE_URL'])
 
 if __name__ == '__main__':
     app.run()
