@@ -213,7 +213,7 @@ def getCallScriptsApi():
         return json.dumps({'status': 'OK',
             'result': getCallScripts(callScriptId, campaignId, searchTerms)})
     except Exception as e:
-        return json.dumps({'status': 'FAIL', 'error_message': e})
+        return json.dumps({'status': 'FAIL', 'error_message': str(e)})
 
 def getCallScripts(callScriptId, campaignId, searchTerms):
     query = {}
