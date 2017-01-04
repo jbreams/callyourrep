@@ -127,7 +127,7 @@ def suggestCallScriptApi():
         res = putCallScript(request.get_json(), True)
 
         campaignDoc = mongo.db.campaigns.find_one({'_id': ObjectId(newCallScript['campaign'])})
-        adminsCursor = mongo.db.users.find({'email': { '$in': campaignDoc['owners'] }})
+        adminsCursor = mongo.db.users.find({'_id': { '$in': campaignDoc['owners'] }})
         approvalLink = "{0}/api/approveCallScript?approval={1}".format(
             app.config['BASE_URL'], newCallScript['approvalCode'])
 
@@ -151,7 +151,6 @@ def suggestCallScriptApi():
                  sender = "contact@callyourrep.us",
                  to = admin['email'],
                  html_body = emailText)
-            message.send()
         return json.dumps({'status': 'OK', 'result': 'Submitted!'})
 
     except Exception as e:

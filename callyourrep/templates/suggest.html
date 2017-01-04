@@ -82,7 +82,7 @@
                   <div class="g-recaptcha cyr-right" data-sitekey="%% googleRecaptchaKey %%"></div>
                 </div>
                 <div class="form-group">
-                  <button type="submit" class="btn btn-default" name="signup">Login</button>
+                  <button type="submit" class="btn btn-default" name="signup">Submit</button>
                 </div>
             </form>
           </div>
@@ -139,6 +139,8 @@
       }).done(function(data) {
         if (data['status'] != 'OK') {
           showAlert('danger', data['error_message'], function(elem) { suggestForm.after(elem) });
+        } else {
+          window.location.href = '/caller';
         }
       });
 
