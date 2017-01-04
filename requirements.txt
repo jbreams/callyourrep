@@ -12,3 +12,4 @@ pyyaml
 requests
 stripe
 twilio
+python-postmark>=0.4.3

@@ -4,6 +4,8 @@ from callyourrep import app, mongo, utc, users
 from datetime import datetime, timedelta
 from flask import Flask, request, json, render_template, session, redirect, url_for
 from flask.ext.pymongo import PyMongo, ASCENDING, DESCENDING
+from postmark import PMMail
+import requests
 import jsonschema
 
 callScriptSchema = {
@@ -42,7 +44,11 @@ callScriptSchema = {
         'expiresOn': { 'type': 'string', 'format': 'date-time' },
         'phoneNumber': { 'type': 'string', 'pattern': '^(\+?[1-9]\d{1,14})$' },
         'createdBy': { 'type': 'string', 'pattern': '^[A-Fa-f\d]{24}$' },
+        'submittedBy': { 'type': 'string' },
         'calls': { 'type': 'number' },
+        'approvalCode': { 'type': 'string', 'pattern': '^[A-Fa-f\d]{24}$' },
+        'approvedBy': { 'type': 'string', 'pattern': '^[A-Fa-f\d]{24}$' },
+        'approved': { 'type': 'boolean' },
     },
     'required': [
         'campaign',
@@ -60,12 +66,100 @@ def getCallScriptSchema():
 @users.loginRequired
 def putCallScriptApi():
     try:
+        newCallScript = request.get_json()
+        newCallScript['approved'] = True
         return putCallScript(request.get_json())
     except Exception as e:
         return json.dumps({'status': 'FAIL', 'error_message': str(e)})
 
-def putCallScript(newCallScript):
-    jsonschema.validate(newCallScript, callScriptSchema)
+@app.route('/api/approveCallScript')
+@users.loginRequired
+def approveCallScriptApi():
+    try:
+        approvalCode = request.args.get("approval", None, ObjectId)
+        if not approvalCode:
+            raise Exception("No approval code specified")
+
+        callScriptDoc = mongo.db.callscripts.find({'approvalCode': approvalCode})
+        if not callScriptDoc:
+            raise Exception("No call script has that approval code")
+
+        if callScriptDoc['approved']:
+            raise Exception("Call script already approved!")
+
+        mongo.db.callscripts.update_one(
+            {'_id': callScriptDoc['_id']},
+            {'$set': { 'approved': True, 'approvedBy': request.userId }}
+        )
+
+        return json.dumps({'status': 'OK', 'result': 'Approved!'})
+    except Exception as e:
+        return json.dumps({'status': 'FAIL', 'error_message': str(e)})
+
+@app.route('/api/suggestCallScript', methods=['POST'])
+@users.loginOptional
+def suggestCallScriptApi():
+    try:
+        newCallScript = request.get_json()
+        if not request.userId:
+            if 'g-recaptcha-response' not in newCallScript:
+                raise Exception("No recaptcha response! Are you a robot!?")
+            captchaResult = requests.post("https://www.google.com/recaptcha/api/siteverify",
+                params = {
+                    'secret': app.config['GOOGLE_RECAPTCHA_SECRET'],
+                    'response': newCallScript['g-recaptcha-response'],
+                    'remoteip': request.remote_addr },
+                headers = {
+                    'Referer': app.config['BASE_URL'],
+                })
+
+            if captchaResult.status_code != 200:
+                raise Exception("Exception running captcha verification")
+            captchaResultObj = captchaResult.json()
+            if captchaResultObj['success'] == False:
+                errorCodes = captchaResultObj.get("error-codes", "Unknown error")
+                raise Exception("Exception running captcha verification: {}".format(errorCodes))
+            del newCallScript['g-recaptcha-response']
+
+        jsonschema.validate(newCallScript, callScriptSchema)
+        newCallScript['approved'] = False
+        newCallScript['approvalCode'] = str(ObjectId())
+        res = putCallScript(request.get_json(), True)
+
+        campaignDoc = mongo.db.campaigns.find_one({'_id': ObjectId(newCallScript['campaign'])})
+        adminsCursor = mongo.db.users.find({'email': { '$in': campaignDoc['owners'] }})
+        approvalLink = "{0}/api/approveCallScript?approval={1}".format(
+            app.config['BASE_URL'], newCallScript['approvalCode'])
+
+        emailText = """<p>A new call script has been submitted to your campaign!</p>
+<p>You can approve this call script by going here <a href="{0}">{0}</a></p>.
+<p><strong>Title:</strong> {1}</p>
+<p><strong>Applies To:</strong> {2}</p>
+<p><strong>Text:</strong> {3}</p>
+<p><strong>Tags:</strong> {4}</p>
+<p><strong>Submitted By:</strong> {5}
+""".format(approvalLink,
+           newCallScript['title'],
+           ', '.join(newCallScript['appliesTo']),
+           newCallScript['text'],
+           ', '.join(newCallScript.get('tags', [])),
+           newCallScript.get('submittedBy', ''))
+
+        for admin in adminsCursor:
+            message = PMMail(api_key = app.config['POSTMARK_API_KEY'],
+                 subject = "New Suggested Call Script",
+                 sender = "contact@callyourrep.us",
+                 to = admin['email'],
+                 html_body = emailText)
+            message.send()
+        return json.dumps({'status': 'OK', 'result': 'Submitted!'})
+
+    except Exception as e:
+        return json.dumps({'status': 'FAIL', 'error_message': str(e)})
+
+def putCallScript(newCallScript, validated=False):
+    if not validated:
+        jsonschema.validate(newCallScript, callScriptSchema)
     newCallScriptId = ObjectId()
     if '_id' in newCallScript:
         newCallScript['_id'] = ObjectId(newCallScript['_id'])
@@ -90,7 +184,7 @@ def putCallScript(newCallScript):
     if not campaignDoc:
         raise Exception('Campaign {} not found'.format(newCallScript['campaign']))
 
-    if 'owners' in campaignDoc and request.userId not in campaignDoc['owners']:
+    if not validated and request.userId not in campaignDoc['owners']:
         raise Exception('User not allowed to modify campaign {}'.format(
                 newCallScript['campaign']))
 
@@ -98,15 +192,9 @@ def putCallScript(newCallScript):
         raise Exception('Campaign {} does not own phone number {}'.format(
             newCallScript['campaign'], newCallScript['phoneNumber']))
 
-    if 'owners' not in campaignDoc:
-        oldScriptDoc = mongo.db.callscripts.find_one({'_id': newCallScriptId})
-        if oldScriptDoc and request.userId != oldScriptDoc['createdBy']:
-            raise Exception('Cannot update call script you did not create')
-
     if not oldCallScript:
         mongo.db.callscripts.insert_one(newCallScript)
     else:
-
         mongo.db.callscripts.replace_one(
             {'_id': newCallScriptId},
             newCallScript,
@@ -170,9 +258,10 @@ def getCallScripts(callScriptId, campaignId, searchTerms):
     cursor = mongo.db.callscripts.find(query)
     res = {}
     for c in cursor:
-        c['_id'] = str(c['_id'])
-        c['campaign'] = str(c['campaign'])
-        c['createdBy'] = str(c['createdBy'])
+        for k in [ '_id', 'campaign', 'createdBy' ]:
+            c[k] = str(c[k])
+        for k in [ 'approvalCode' ]:
+            del c[k]
         res[c['_id']] = c
 
     return res

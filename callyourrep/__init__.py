@@ -16,9 +16,9 @@ from pprint import pprint
 
 app = Flask(__name__)
 for (k, v) in os.environ.items():
-    if k.startswith(('MONGODB_', 'TWILIO_', 'GOOGLE_', 'STRIPE_')):
+    if k.startswith(('MONGODB_', 'TWILIO_', 'GOOGLE_', 'STRIPE_', 'POSTMARK_')):
         app.config[k] = v
-    elif k in [ 'SESSION_SECRET_KEY', 'BASE_URL' ]:
+    elif k in [ 'SESSION_SECRET_KEY', 'BASE_URL', 'PUBLIC_CAMPAIGN' ]:
         app.config[k] = v
 
 from flask_sslify import SSLify
@@ -152,5 +152,26 @@ def caller():
         ogDescription=ogDescription,
         ogBaseUrl=app.config['BASE_URL'])
 
+@app.route('/suggest')
+def suggest():
+    campaignId = request.args.get('campaign', app.config['PUBLIC_CAMPAIGN'])
+    try:
+        campaignId = ObjectId(campaignId)
+    except:
+        campaignId = ObjectId(app.config['PUBLIC_CAMPAIGN'])
+
+    campaignDoc = mongo.db.campaigns.find_one({'_id': campaignId})
+    if not campaignDoc:
+        campaignId = ObjectID(app.config['PUBLIC_CAMPAIGN'])
+        campaignDoc = mongo.db.campaigns.find_one({'_id': campaignId})
+    phoneNumber = campaignDoc['phoneNumbers'][0]
+
+    return render_template('suggest.html',
+        googleAPIKey=app.config['GOOGLE_API_KEY'],
+        googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'],
+        googleRecaptchaKey=app.config['GOOGLE_RECAPTCHA_KEY'],
+        campaignId=str(campaignId),
+        phoneNumber=phoneNumber,
+    )
 if __name__ == '__main__':
     app.run()
