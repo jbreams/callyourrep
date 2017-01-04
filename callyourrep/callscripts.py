@@ -4,7 +4,7 @@ from callyourrep import app, mongo, utc, users
 from datetime import datetime, timedelta
 from flask import Flask, request, json, render_template, session, redirect, url_for
 from flask.ext.pymongo import PyMongo, ASCENDING, DESCENDING
-from postmark import PMMail
+import pystmark
 import requests
 import jsonschema
 
@@ -76,11 +76,11 @@ def putCallScriptApi():
 @users.loginRequired
 def approveCallScriptApi():
     try:
-        approvalCode = request.args.get("approval", None, ObjectId)
+        approvalCode = request.args.get("approval", None)
         if not approvalCode:
             raise Exception("No approval code specified")
 
-        callScriptDoc = mongo.db.callscripts.find({'approvalCode': approvalCode})
+        callScriptDoc = mongo.db.callscripts.find_one({'approvalCode': approvalCode})
         if not callScriptDoc:
             raise Exception("No call script has that approval code")
 
@@ -146,11 +146,12 @@ def suggestCallScriptApi():
            newCallScript.get('submittedBy', ''))
 
         for admin in adminsCursor:
-            message = PMMail(api_key = app.config['POSTMARK_API_KEY'],
-                 subject = "New Suggested Call Script",
-                 sender = "contact@callyourrep.us",
-                 to = admin['email'],
-                 html_body = emailText)
+            message = pystmark.Message(
+                sender='contact@callyourrep.us',
+                to=admin['email'],
+                subject='New Suggested Call Script',
+                html=emailText)
+            pystmark.send(message, api_key=app.config['POSTMARK_API_KEY'])
         return json.dumps({'status': 'OK', 'result': 'Submitted!'})
 
     except Exception as e:
@@ -260,7 +261,7 @@ def getCallScripts(callScriptId, campaignId, searchTerms):
     cursor = mongo.db.callscripts.find(query)
     res = {}
     for c in cursor:
-        for k in [ '_id', 'campaign', 'createdBy' ]:
+        for k in [ k for k in [ '_id', 'campaign', 'createdBy', 'approvedBy' ] if k in c ]:
             c[k] = str(c[k])
         for k in [ k for k in [ 'approvalCode' ] if k in c ]:
             del c[k]

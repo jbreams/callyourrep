@@ -81,9 +81,10 @@ def signin():
             googleAPIKey=app.config['GOOGLE_API_KEY'],
             googleAnalyticsKey=app.config['GOOGLE_ANALYTICS_KEY'],
             googleRecaptchaKey=app.config['GOOGLE_RECAPTCHA_KEY'],
+            nextUrl=request.args.get('next', ''),
             errorText=None)
     try:
-        redirectTo = request.args.get('next', url_for('manage'))
+        redirectTo = request.form.get('next', url_for('manage'))
         if request.form.has_key("signin"):
             userDoc = mongo.db.users.find_one({'email': request.form.get("signinEmail", type=str)})
             if not userDoc:
