@@ -234,6 +234,8 @@ def getCallScripts(callScriptId, campaignId, searchTerms):
             raise Exception('Campaign {} does not exist'.format(campaignId))
 
         query['campaign'] = campaignId
+        if not request.userId or request.userId not in campaignDoc['owners']:
+            query['approved'] = True
     else:
         campaignCursor = None
         if request.userId:
@@ -247,6 +249,7 @@ def getCallScripts(callScriptId, campaignId, searchTerms):
         for c in campaignCursor:
             campaignIds.append(c['_id'])
         query['campaign'] = { '$in': campaignIds }
+        query['approved'] = True
 
     if searchTerms:
         query['$text'] = {
@@ -260,7 +263,7 @@ def getCallScripts(callScriptId, campaignId, searchTerms):
     for c in cursor:
         for k in [ '_id', 'campaign', 'createdBy' ]:
             c[k] = str(c[k])
-        for k in [ 'approvalCode' ]:
+        for k in [ k for k in [ 'approvalCode' ] if k in c ]:
             del c[k]
         res[c['_id']] = c
 
