@@ -32,8 +32,7 @@ db = client.get_default_database()
 
 def writeLegislators():
     districts = db['contacts']
-    districts.drop();
-    districts.create_index([('geoFence', pymongo.GEOSPHERE)])
+    districts.delete_many({'type': { '$in': [ 'sen', 'rep' ] }})
     for rep in legislators:
         currentTerm = rep["terms"][-1]
         districtPath, districtName = resolveDistrict(currentTerm)
@@ -66,8 +65,12 @@ def writeLegislators():
             picture = requests.get(
                 "https://theunitedstates.io/images/congress/225x275/{0}.jpg".format(
                     rep["id"]["bioguide"]))
-            picture.raise_for_status()
-            picture = "data:image/jpeg;base64,{0}".format(base64.b64encode(picture.content))
+            if picture.status_code == 404:
+                picture = None
+                print "No picture found for {0}".format(districtName)
+            else:
+                picture.raise_for_status()
+                picture = "data:image/jpeg;base64,{0}".format(base64.b64encode(picture.content))
 
             phoneNumber  = phonenumbers.format_number(
                 phonenumbers.parse(currentTerm.get("phone"), 'US'),
