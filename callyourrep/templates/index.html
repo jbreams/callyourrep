@@ -83,7 +83,7 @@
         <div class="cyr-col center">
           <div class="cyr-row right">
             <div style="margin-right: 1rem">
-              <span class="badge">{{#if callCount }}{{callCount}}{{else}}0{{/if}}</span> calls
+              <span class="badge">{{#if calls }}{{calls}}{{else}}0{{/if}}</span> calls
             </div>
 
             <div class="btn-group">
@@ -167,9 +167,27 @@
         }
         var doneFn = function(data)  {
           resultData = data;
+          if (data['status'] != 'OK') {
+            errorAlert("Error loading topics", data['error_message']);
+            return;
+          }
+
+          resultList = Object.values(data['result']);
+          resultList.sort(function(a, b) {
+            a = a.calls || 0;
+            b = b.calls || 0;
+            if (a > b) {
+              return -1;
+            } else if(a < b) {
+              return 1;
+            } else {
+              return 0;
+            }
+          });
+
           var results = $("#results");
           results.empty();
-          results.append(template({topics: data['result']}));
+          results.append(template({topics: resultList}));
 
           $(function () {
               $('[data-toggle="popover"]').popover()

@@ -258,7 +258,7 @@ def getCallScripts(callScriptId, campaignId, searchTerms):
             '$caseSensitive': False
         }
 
-    cursor = mongo.db.callscripts.find(query)
+    cursor = mongo.db.callscripts.find(query).sort('calls', DESCENDING)
     res = {}
     for c in cursor:
         for k in [ k for k in [ '_id', 'campaign', 'createdBy', 'approvedBy' ] if k in c ]:
