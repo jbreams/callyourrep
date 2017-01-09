@@ -110,6 +110,7 @@
           </button>
         </div>
       </div>
+
       <div class="panel panel-default cyr-protected-section">
         <div class="panel-heading">
           <h3 class="panel-title">Billing</h3>
@@ -150,6 +151,7 @@
           </button>
         </div>
       </div>
+
       <div class="panel panel-default cyr-protected-section">
         <div class="panel-heading">
           <h3 class="panel-title">Phone Numbers</h3>
@@ -180,6 +182,83 @@
           </div>
         </div>
       </div>
+
+      <div class="panel panel-default cyr-protected-section">
+        <div class="panel-heading">
+          <h3 class="panel-title">Service Accounts</h3>
+        </div>
+        <ul class="list-group" id="serviceAccountsList"></ul>
+        <div class="panel-footer">
+          <button type="button"
+                  id="newServiceAccount"
+                  class="btn btn-primary">
+            New Service Account
+          </button>
+        </div>
+      </div>
+
+      <div class="modal fade" tabindex="-1" role="dialog" id="serviceAccountModal">
+        <div class="modal-dialog" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <button type="button"
+                      class="close"
+                      data-dismiss="modal"
+                      aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+              <h4 class="modal-title">Service Account Details</h4>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>
+                  Service Account ID
+                </label>
+                <p id="serviceAccountId"></p>
+              </div>
+              <div class="form-group">
+                <label>
+                  Secret Key
+                </label>
+                <p id="serviceAccountSecretKey"></p>
+              </div>
+              <div class="form-group">
+                <label>
+                  Note
+                </label>
+                <p id="serviceAccountNote"></p>
+              </div>
+              <div class="form-group">
+                <label>
+                  Created At
+                </label>
+                <p id="serviceAccountCreatedAt"></p>
+              </div>
+              <div class="form-group">
+                <label>
+                  Last Login
+                </label>
+                <p id="serviceAccountLastLogin"></p>
+              </div>
+              <div class="form-group">
+                <label>
+                  Last Failed Login
+                </label>
+                <p id="serviceAccountLastFailedLogin"></p>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button"
+                class="btn btn-danger"
+                id="serviceAccountDelete">
+                Delete
+              </button>
+              <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
    </div>
   </body>
@@ -207,6 +286,17 @@
         </button>
       </div>
     </li>
+  </script>
+  <script id="service-accounts-list-template" type="text/x-handlebars-template">
+    <ul class="list-group" id="serviceAccountsList">
+      {{#each serviceAccounts}}
+      <li class="list-group-item cyr-row">
+        <a href="#" data-toggle="modal" data-target="#serviceAccountModal" data-id="{{_id}}">
+          <p class="list-group-item-text">{{_id}} {{#if note}}({{note}}){{/if}}<p>
+        </a>
+      </li>
+      {{/each}}
+    </ul>
   </script>
   <script id="alert-template" type="text/x-handlebars-template">
     <div class="alert alert-{{type}} alert-dismissible fade in" role="alert">
@@ -245,6 +335,7 @@
     var campaign = %% campaign | safe %%;
     var users = %% users | safe %%;
     var loggedInUser = %% loggedInUser | safe %%;
+    var serviceAccounts = %% serviceAccounts | safe %%;
 
     Stripe.setPublishableKey('%% stripePublishableKey %%');
 
@@ -252,6 +343,8 @@
     var phoneListItemTemplate = Handlebars.compile($("#phone-numbers-list-item-template").html());
     var alertTemplate = Handlebars.compile($("#alert-template").html());
     var userMenuTemplate = Handlebars.compile($("#user-menu-template").html());
+    var serviceAccountsListTemplate = Handlebars.compile(
+      $("#service-accounts-list-template").html());
 
     $("#userMenu").replaceWith(userMenuTemplate(users[loggedInUser]));
 
@@ -291,7 +384,6 @@
           "/api/releasePhoneNumber",
           { 'phoneNumber': phoneNumber },
           function(data) {
-            console.log(data);
             if (data['status'] == 'OK') {
               listElem.remove();
             }
@@ -310,7 +402,10 @@
       $('input[name="name"]').val(campaign['name']);
       $('select[name="type"] option[value="' + campaign['type'] + '"]').prop('selected', true);
       if (campaign['billingOwner']) {
-        $('input[name="billingOwner"]').val(users[campaign['billingOwner']]['email']);
+        var billingOwner = users[campaign['billingOwner']];
+        $('input[name="billingOwner"]').
+          val(billingOwner['email']).
+          data('userid', billingOwner['_id'])
       }
       if (campaign['owners']) {
         campaign['owners'].forEach(function(owner) {
@@ -493,7 +588,118 @@
           }
         });
       });
+
+      $("#serviceAccountsList").replaceWith(serviceAccountsListTemplate({
+        serviceAccounts: serviceAccounts}));
+
+      $("#newServiceAccount").click(function(ev) {
+        ev.preventDefault();
+        var parentDiv = $(this).parent();
+        var confirmAlert = showAlert('info',
+            `<h4>Create A Service Account</h4>
+            <p>Enter a note to describe what this service account will be used for.</p>
+            <p><input name="serviceAccountNote" class="form-control" type="text"></p>
+            <p>
+              <button type="button"
+                      class="btn btn-success"
+                      id="newServiceAccountConfirm">
+                Create
+              </button>
+            </p>`,
+            function(e) { parentDiv.after(e) });
+        confirmAlert.find('#newServiceAccountConfirm').click(function(ev) {
+          ev.preventDefault();
+          confirmAlert.alert('close');
+          var confirmButton = $(this);
+          confirmButton.prop('disabled', true);
+
+          var noteText = confirmAlert.find('input[name="serviceAccountNote"]').val();
+
+          $.ajax({
+            type: 'post',
+            url: '/api/serviceAccounts',
+            contentType: 'application/json',
+            data: JSON.stringify({
+              'campaign': campaign['_id'],
+              'note': noteText,
+            }),
+          }).done(function(data) {
+            data = JSON.parse(data)
+            if (data['status'] == 'FAIL') {
+              showAlert("danger",
+                "Error creating service account! " + data['error_message'],
+                function(e) { parentDiv.after(e) });
+              return;
+            }
+            var newAccount = data['result'];
+            serviceAccounts[newAccount['_id']] = newAccount;
+            $("#serviceAccountsList").replaceWith(serviceAccountsListTemplate({
+              serviceAccounts: serviceAccounts }));
+          });
+        });
+      });
     }
+
+    $("#serviceAccountModal").on("show.bs.modal", function(ev) {
+      var link = $(ev.relatedTarget);
+        var accountId = link.data('id');
+      var modal = $(this);
+      var accountData = serviceAccounts[accountId]
+
+      const mapping = {
+        'Id': '_id',
+        'SecretKey': 'secretKey',
+        'Note': 'note',
+        'CreatedAt': 'createdAt',
+        'LastLogin': { 'field': 'lastLogin', 'default': 'never' },
+        'LastFailedLogin': { 'field': 'lastFailedLogin', 'default': 'never' },
+      };
+      jQuery.each(mapping, function(name, val) {
+        var field = $(`#serviceAccount${name}`);
+        if ($.type(val) === "string") {
+          field.text(accountData[val]);
+        } else {
+          var realVal = accountData[val['field']]
+          if (realVal) {
+            field.text(realVal);
+          } else {
+            field.text(val['default']);
+          }
+        }
+      });
+
+      modal.find("#serviceAccountDelete").click(function(ev) {
+        var parent = $(this).parent();
+        var ackAlert = showAlert('warning',
+          `<h4>Are you sure?</h4>
+          <p>You are about to remove this phone number. All call scripts associated with this
+          phone number will also be removed!</p>
+          <p>
+            <a href="#" class="btn btn-danger" role="button">Delete It</a>
+            <button type="button" class="btn btn-default">Nevermind</button>
+          </p>`,
+          function(e) { parent.after(e); });
+        ackAlert.find(".btn-danger").click(function(ev) {
+          $.ajax({
+            type: 'delete',
+            url: '/api/serviceAccounts',
+            contentType: 'application/json',
+            data: JSON.stringify({ account: accountId })
+            }).done(
+          function(ev) {
+            delete serviceAccounts[accountId];
+            $("#serviceAccountsList").replaceWith(serviceAccountsListTemplate({
+              serviceAccounts: serviceAccounts}));
+            ackAlert.remove();
+            ackAlert.alert('close');
+          });
+        });
+        ackAlert.find(".btn-default").click(function(ev) {
+          ackAlert.remove();
+          ackAlert.alert('close');
+        });
+      });
+    });
 
   </script>
   <script>

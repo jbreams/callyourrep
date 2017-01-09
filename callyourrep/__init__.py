@@ -104,6 +104,7 @@ def manageCampaign():
             campaign = None
         else:
             campaign = campaign[str(campaignId)]
+    serviceAccountList = users.getServiceAccounts(campaignId)
     usersList = [ users.getUser(None, request.userId) ]
     if campaign and 'owners' in campaign:
         for o in campaign['owners']:
@@ -119,6 +120,7 @@ def manageCampaign():
         campaign=json.dumps(campaign),
         users=json.dumps(dict([(u['_id'], u) for u in usersList])),
         loggedInUser=json.dumps(str(request.userId)),
+        serviceAccounts=json.dumps(serviceAccountList),
     )
 
 @app.route('/caller')

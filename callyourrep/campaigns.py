@@ -56,6 +56,13 @@ def putCampaign(newCampaign):
     if 'phoneNumbers' in newCampaign:
         del newCampaign['phoneNumbers']
 
+    serviceAccounts = [ acct['_id'] for acct in mongo.db.users.find(
+        {'campaign': newCampaignId, 'type': 'service' }
+    )]
+    newCampaign['owners'] += serviceAccounts
+    seen = set()
+    newCampaign['owners'] = [o for o in newCampaign['owners'] if o not in seen and not seen.add(o)]
+
     for (i, v) in enumerate(newCampaign['owners']):
         newCampaign['owners'][i] = ObjectId(v)
 
@@ -103,6 +110,10 @@ def getCampaigns(campaignId):
             c['isAdmin'] = False
         else:
             c['isAdmin'] = True
+            serviceAccounts = set([ acct['_id'] for acct in mongo.db.users.find(
+                {'_id': { '$in': c['owners'] }, 'type': 'service' }
+            )])
+            c['owners'] = [ o for o in c['owners'] if o not in serviceAccounts ]
 
         if 'stripeToken' in c:
             del c['stripeToken']
