@@ -98,13 +98,14 @@ def manage():
 def manageCampaign():
     campaignId = request.args.get("campaign", None, ObjectId)
     campaign = None
+    serviceAccountList = {}
     if campaignId:
         campaign = campaigns.getCampaigns(campaignId)
         if campaign and str(campaignId) not in campaign:
             campaign = None
         else:
             campaign = campaign[str(campaignId)]
-    serviceAccountList = users.getServiceAccounts(campaignId)
+            serviceAccountList = users.getServiceAccounts(campaignId)
     usersList = [ users.getUser(None, request.userId) ]
     if campaign and 'owners' in campaign:
         for o in campaign['owners']:
