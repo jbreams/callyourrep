@@ -223,6 +223,7 @@
     }
     var shareTemplate = Handlebars.compile($("#share-dropdown-template").html());
     $("#share-dropdown-container").append(shareTemplate({target: shareTarget}));
+    var clipboard = new Clipboard(".cyr-copy-button");
 
     $.get('/api/twilioToken')
       .done(function(blob) {
