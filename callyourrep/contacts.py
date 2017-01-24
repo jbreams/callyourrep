@@ -46,8 +46,6 @@ class CheckContactForUser:
     def __call__(self, contact):
         if contact['visibility'] == 'public':
             return True
-        if 'campaign' not in contact:
-            return contact['createdBy'] == request.userId
 
         if contact['campaign'] not in self.cache:
             campaignDoc = mongo.db.campaigns.find_one({'_id': contact['campaign']})
@@ -109,16 +107,22 @@ def getContactsApi():
         lat = request.args.get('lat', None, type=float)
         lng = request.args.get('lng', None, type=float)
         campaignId = request.args.get('campaign', None, type=ObjectId)
+        callScriptId = request.args.get('callscript', None, type=ObjectId)
         contactType = request.args.get('type', None, type=str)
         search = request.args.get('search', None, type=str)
 
         return json.dumps({'status': 'OK',
-            'result': getContacts(contactId, lat, lng, campaignId, contactType, search)})
+            'result': getContacts(contactId, lat, lng, campaignId, contactType, search, callScriptId)})
     except Exception as e:
         return json.dumps({'status': 'FAIL', 'error_message': str(e)})
 
-def getContacts(contactId=None, lat=None, lng=None, campaignId=None, contactType=None, search=None):
+def getContacts(contactId=None, lat=None, lng=None, campaignId=None, contactType=None, search=None, callScriptId=None):
     checkPerms = CheckContactForUser()
+    if callScriptId:
+        callScriptDoc = mongo.db.callscripts.find_one(callScriptId)
+        if not callScriptDoc:
+            raise Exception("Cannot find call script {}".format(callScriptId))
+        contactType = callScriptDoc['appliesTo']
     if campaignId and not isinstance(campaignId, ObjectId):
         campaignId = ObjectId(campaignId)
 
@@ -127,13 +131,11 @@ def getContacts(contactId=None, lat=None, lng=None, campaignId=None, contactType
             contactId = ObjectId(contactId)
         contactDoc = mongo.db.contacts.find_one({'_id': contactId})
         if not contactDoc:
-            return json.dumps({'status': 'FAIL', 'error_message':
-                'Contact with the id {} does not exist'.format(contactId)})
+            raise Exception('Contact with the id {} does not exist'.format(contactId))
         if not checkPerms(contactDoc):
-            return json.dumps({'status': 'FAIL', 'error_message':
-                'Not authorized to access this contact'})
+            raise Exception('Not authorized to access this contact')
 
-        return json.dumps({'status': 'OK', 'result': contactId})
+        return cleanContact(contactDoc)
 
     query = {}
     if not request.userId:
@@ -158,7 +160,10 @@ def getContacts(contactId=None, lat=None, lng=None, campaignId=None, contactType
         query['campaign'] = campaignId
 
     if contactType and contactType != 'all':
-        query['type'] = contactType
+        if isinstance(contactType, list):
+            query['type'] = { '$in': contactType }
+        else:
+            query['type'] = contactType
 
     if search:
         query['$text'] = {

@@ -230,6 +230,9 @@
         lat: geoLocation.lat(),
         lng: geoLocation.lng(),
       };
+      if (topic) {
+        query['callscript'] = topic['_id'];
+      }
 
       $.getJSON("/api/contacts", query)
         .done(function(result) {
