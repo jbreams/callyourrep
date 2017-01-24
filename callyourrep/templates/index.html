@@ -34,6 +34,8 @@
     <![endif]-->
     <script
         src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.6/handlebars.min.js"></script>
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.5.16/clipboard.min.js"></script>
   </head>
   <body>
     <div class="content-wrapper cyr-grid cyr-col">
@@ -94,23 +96,30 @@
               <ul class="dropdown-menu cyr-share-dropdown">
                 <li>
                   <a href="https://www.facebook.com/sharer/sharer.php?u=https%3A//callyourrep.us/caller?topicId={{_id}}">
-                    <i class="fa fa-2x fa-facebook-official" aria-hidden="true"></i>
+                    <i class="fa fa-facebook-official" aria-hidden="true"></i>
+                    Facebook
                   </a>
                 </li>
                 <li>
-                  <a href="https://twitter.com/home?status=I%20just%20used%20callyourrep.us%20to%20call%20my%20congress%20person!%20Call%20you%20rep%20at%20%20https%3A//callyourrep.us/caller?topicId={{_id}}">
-                    <i class="fa fa-2x fa-twitter-square" aria-hidden="true"></i>
+                  <a href="https://twitter.com/home?status=Call%20your%20congress%20person%20about%20{{title}}!%20https%3A//callyourrep.us/caller?topicId={{_id}}">
+                    <i class="fa fa-twitter-square" aria-hidden="true"></i>
+                    Twitter
                   </a>
                 </li>
                 <li>
                   <a href="//www.reddit.com/submit" onclick="window.location = '//www.reddit.com/submit?url=' + encodeURIComponent('https://callyourrep.us/caller?topicId={{_id}}'); return false">
-                    <i class="fa fa-2x fa-reddit-square" aria-hidden="true"></i>
+                    <i class="fa fa-reddit-square" aria-hidden="true"></i>
+                    Reddit
+                  </a>
+                </li>
+                <li>
+                  <a class="cyr-copy-button" data-clipboard-text="https://callyourrep.us/caller?topicId={{_id}}">
+                    <i class="fa fa-link" aria-hidden="true"></i>
+                    Copy Link To Clipboard
                   </a>
                 </li>
               </ul>
             </div>
-
-
           </div>
         </div>
       </div>
@@ -156,6 +165,8 @@
     var template = Handlebars.compile($("#topics-results-template").html());
 
     var resultData;
+    var clipboard;
+
     var searchTopics = function(ev) {
         if (ev) {
             ev.preventDefault();
@@ -189,6 +200,7 @@
           results.empty();
           results.append(template({topics: resultList}));
 
+          clipboard = new Clipboard(".cyr-copy-button");
           $(function () {
               $('[data-toggle="popover"]').popover()
           })
