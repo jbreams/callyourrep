@@ -18,7 +18,7 @@ app = Flask(__name__)
 for (k, v) in os.environ.items():
     if k.startswith(('MONGODB_', 'TWILIO_', 'GOOGLE_', 'STRIPE_', 'POSTMARK_')):
         app.config[k] = v
-    elif k in [ 'SESSION_SECRET_KEY', 'BASE_URL', 'PUBLIC_CAMPAIGN' ]:
+    elif k in [ 'SESSION_SECRET_KEY', 'BASE_URL', 'PUBLIC_CAMPAIGN', 'DB_SECRET_KEY' ]:
         app.config[k] = v
 
 from flask_sslify import SSLify
