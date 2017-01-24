@@ -90,3 +90,12 @@
   border-bottom: 1px solid #eee;
 }
 
+.cyr-footer-links {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 5px;
+}
+
+.cyr-footer-links a {
+  margin-right: 1rem;
+}
