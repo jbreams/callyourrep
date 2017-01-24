@@ -202,6 +202,33 @@ def putCallScript(newCallScript, validated=False):
 
     return json.dumps({'status': 'OK', 'result': str(newCallScriptId) })
 
+@app.route('/api/callScripts', methods=['DELETE'])
+@users.loginRequired
+def deleteCallScriptApi():
+    try:
+        reqData = request.get_json()
+        callScriptId = reqData.get('id', None)
+        return json.dumps({'status': 'OK',
+            'result': deleteCallScript(callScriptId)})
+    except Exception as e:
+        return json.dumps({'status': 'FAIL', 'error_message': str(e)})
+
+def deleteCallScript(callScriptId):
+    if not callScriptId:
+        raise Exception('Missing call script id')
+    if not isinstance(callScriptId, ObjectId):
+        callScriptId = ObjectId(callScriptId)
+
+    callScriptDoc = mongo.db.callscripts.find_one({'_id': callScriptId})
+    if not callScriptDoc:
+        raise Exception('Call script {} does not exist!'.format(callScriptId))
+
+    if callScriptDoc['campaign'] not in request.userOwnerOf:
+        raise Exception('User not allowed to modify campaign {}'.format(callScriptDoc['campaign']))
+
+    mongo.db.callscripts.delete_one({'_id': callScriptDoc['_id']})
+    return str(callScriptDoc['_id'])
+
 @app.route('/api/callScripts', methods=['GET'])
 @users.loginOptional
 def getCallScriptsApi():

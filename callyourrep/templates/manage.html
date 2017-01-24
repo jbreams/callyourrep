@@ -119,6 +119,9 @@
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+              <button type="button" class="btn btn-danger" id="callScriptsModalDeleteButton">
+                Delete
+              </button>
               <button type="button" class="btn btn-primary" id="callScriptsModalSaveButton">
                 Save changes
               </button>
@@ -239,6 +242,9 @@
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+              <button type="button" class="btn btn-danger" id="contactsModalDeleteButton">
+                Delete
+              </button>
               <button type="button" class="btn btn-primary" id="contactsModalSaveButton">
                 Save changes
               </button>
@@ -463,6 +469,28 @@ $('#callScriptsModal').on('show.bs.modal', function (event) {
     });
   };
   $("#callScriptsModalSaveButton").click(saveFn);
+
+  var deleteFn = function() {
+    $.ajax({
+      type: 'delete',
+      url: '/api/callScripts',
+      contentType: 'application/json',
+      data: JSON.stringify({id: scriptId}),
+    }).done(function(data) {
+      data = JSON.parse(data);
+      if (data["status"] != "OK") {
+        var alertBox = $("#callScriptsError");
+        alertBox.text(data["error_message"]);
+        alertBox.removeClass("hidden");
+      } else {
+        modal.modal('hide');
+        delete callScripts[data['result']];
+        $("#callScriptsList").
+          replaceWith(callScriptsListTemplate({callScripts: callScripts}));
+      }
+    });
+  };
+  $("#callScriptsModalDeleteButton").click(deleteFn);
 })
 
 $('#contactsModal').on('show.bs.modal', function (event) {
@@ -603,8 +631,6 @@ $('#contactsModal').on('show.bs.modal', function (event) {
       var image = new Image();
       image.src = imageField.uploadResult;
       var canvas = document.createElement('canvas');
-
-
       updateDoc['image'] = imageField.uploadResult;
 
     }
@@ -629,9 +655,7 @@ $('#contactsModal').on('show.bs.modal', function (event) {
         modal.modal('hide');
         updateDoc['_id'] = data['result'];
         contactId = data['result'];
-        console.log(contactId);
         contacts[contactId] = updateDoc;
-        console.log(contacts);
         $("#contactsList").
           replaceWith(contactsListTemplate({contacts: contacts}));
       }
@@ -639,6 +663,27 @@ $('#contactsModal').on('show.bs.modal', function (event) {
   }
 
   $("#contactsModalSaveButton").click(saveFn);
+  var deleteFn = function() {
+    $.ajax({
+      type: 'delete',
+      url: '/api/contacts',
+      contentType: 'application/json',
+      data: JSON.stringify({id: contactId}),
+    }).done(function(data) {
+      data = JSON.parse(data);
+      if (data["status"] != "OK") {
+        var alertBox = $("#contactsError");
+        alertBox.text(data["error_message"]);
+        alertBox.removeClass("hidden");
+      } else {
+        modal.modal('hide');
+        delete contacts[data['result']];
+        $("#contactsList").
+          replaceWith(contactsListTemplate({contacts: contacts}));
+      }
+    });
+  };
+  $("#contactsModalDeleteButton").click(deleteFn);
 });
 
 $("#contactsModal").on('shown.bs.modal', function(e) {

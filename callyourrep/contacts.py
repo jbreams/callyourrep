@@ -99,6 +99,33 @@ def putContact(newContact):
     mongo.db.contacts.replace_one({'_id': newContactId}, newContact)
     return str(newContactId)
 
+@app.route('/api/contacts', methods=['DELETE'])
+@users.loginRequired
+def deleteContactApi():
+    try:
+        reqData = request.get_json()
+        contactId = reqData.get('id', None)
+        return json.dumps({'status': 'OK',
+            'result': deleteContact(contactId)})
+    except Exception as e:
+        return json.dumps({'status': 'FAIL', 'error_message': str(e)})
+
+def deleteContact(contactId):
+    if not contactId:
+        raise Exception('Missing contact id')
+    if not isinstance(contactId, ObjectId):
+        contactId = ObjectId(contactId)
+
+    contactDoc = mongo.db.contacts.find_one({'_id': contactId})
+    if not contactDoc:
+        raise Exception('Contact {} does not exist!'.format(contactId))
+
+    if contactDoc['campaign'] not in request.userOwnerOf:
+        raise Exception('User not allowed to modify campaign {}'.format(contactDoc['campaign']))
+
+    mongo.db.contacts.delete_one({'_id': contactDoc['_id']})
+    return str(contactDoc['_id'])
+
 @app.route('/api/contacts', methods=['GET'])
 @users.loginOptional
 def getContactsApi():
