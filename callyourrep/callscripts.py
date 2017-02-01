@@ -15,6 +15,7 @@ callScriptSchema = {
         '_id': { 'type': 'string', 'pattern': '^[A-Fa-f\d]{24}$' },
         'campaign': { 'type': 'string', 'pattern': '^[A-Fa-f\d]{24}$' },
         'title': { 'type': 'string' },
+        'blurb': { 'type': 'string' },
         'tags': {
             'type': 'array',
             'items': { 'type': 'string' },
@@ -55,6 +56,7 @@ callScriptSchema = {
         'title',
         'appliesTo',
         'text',
+        'blurb',
         'phoneNumber',
     ]
 }
@@ -133,13 +135,15 @@ def suggestCallScriptApi():
 
         emailText = """<p>A new call script has been submitted to your campaign!</p>
 <p>You can approve this call script by going here <a href="{0}">{0}</a></p>.
-<p><strong>Title:</strong> {1}</p>
-<p><strong>Applies To:</strong> {2}</p>
-<p><strong>Text:</strong> {3}</p>
-<p><strong>Tags:</strong> {4}</p>
-<p><strong>Submitted By:</strong> {5}
+<p><strong>Title:</strong> {}</p>
+<p><strong>Blurb:</strong> {}</p>
+<p><strong>Applies To:</strong> {}</p>
+<p><strong>Text:</strong> {}</p>
+<p><strong>Tags:</strong> {}</p>
+<p><strong>Submitted By:</strong> {}</p>
 """.format(approvalLink,
            newCallScript['title'],
+           newCallScript['blurb'],
            ', '.join(newCallScript['appliesTo']),
            newCallScript['text'],
            ', '.join(newCallScript.get('tags', [])),

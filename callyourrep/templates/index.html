@@ -123,7 +123,11 @@
         </div>
       </div>
       <div class="panel-body h4" style="margin: 1rem">
-        {{text}}
+        {{#if blurb}}
+            {{blurb}}
+        {{else}}
+            {{text}}
+        {{/if}}
       </div>
       <div class="panel-footer cyr-row">
         <span class="cyr-flex"></span>

@@ -91,6 +91,10 @@
                   <input class="form-control" type="text" name="title">
                 </div>
                 <div class="form-group">
+                  <label for="blurb">Blurb</label>
+                  <textarea name="blurb" class="form-control"></textarea>
+                </div>
+                <div class="form-group">
                   <label for="appliesTo">
                     Applies To
                   </label>
@@ -272,7 +276,13 @@
         <div class="cyr-row">
           <h4 class="list-group-item-heading">{{title}}</h4>
         </div>
-        <p class="list-group-item-text">{{text}}</p>
+        <p class="list-group-item-text">
+        {{#if blurb}}
+            {{blurb}}
+        {{else}}
+            {{text}}
+        {{/if}}
+        </p>
       </a>
       {{/each}}
     </ul>
@@ -434,18 +444,23 @@ $('#callScriptsModal').on('show.bs.modal', function (event) {
   }
   modal.find('.modal-title').text(titleText)
 
-  var saveFn = function() {
+  var saveFn = function(ev) {
+    $(ev.target).prop('disabled', true);
     var oldDoc = {};
     if (scriptId) {
       oldDoc = callScripts[scriptId];
     }
     var updateDoc = Object.assign(oldDoc, {
-      'title': modal.find('input[name="title"]').val(),
-      'campaign': campaignId,
-      'appliesTo': modal.find('select[name="appliesTo"]').val(),
-      'text': modal.find('textarea[name="text"]').val(),
-      'phoneNumber': modal.find('select[name="phoneNumber"]').val(),
+      title: modal.find('input[name="title"]').val(),
+      campaign: campaignId,
+      appliesTo: modal.find('select[name="appliesTo"]').val(),
+      text: modal.find('textarea[name="text"]').val(),
+      blurb: modal.find('textarea[name="blurb"]').val(),
+      phoneNumber: modal.find('select[name="phoneNumber"]').val(),
     });
+    if (scriptId) {
+      updateDoc['_id'] = scriptId;
+    }
 
     $.ajax({
       type: 'put',
@@ -453,6 +468,7 @@ $('#callScriptsModal').on('show.bs.modal', function (event) {
       contentType: 'application/json',
       data: JSON.stringify(updateDoc),
     }).done(function(data) {
+      $(ev.target).prop('disabled', false);
       data = JSON.parse(data);
       if (data["status"] != "OK") {
         var alertBox = $("#callScriptsError");
@@ -612,16 +628,20 @@ $('#contactsModal').on('show.bs.modal', function (event) {
   uploadBtnCbGen(modal.find('input[name="image"]'), 1024 * 1024 * 2);
   uploadBtnCbGen(modal.find('input[name="geoFence"]'), 1024 * 512);
 
-  var saveFn = function() {
+  var saveFn = function(ev) {
+    $(ev.target).prop('disabled', true);
     var oldDoc = {};
     if (contactId) {
       oldDoc = contacts[contactId];
     }
 
     var updateDoc = Object.assign(oldDoc, {
-      'campaign': campaignId,
-      'type': modal.find('select[name="type"]').val()
+      campaign: campaignId,
+      type: modal.find('select[name="type"]').val()
     });
+    if (contactId) {
+      updatedoc['_id'] = contactId;
+    }
     $.each(['name', 'title', 'phoneNumber'], function(i, v) {
       updateDoc[v] = modal.find('input[name="' + v + '"]').val();
     });
@@ -645,6 +665,7 @@ $('#contactsModal').on('show.bs.modal', function (event) {
       contentType: 'application/json',
       data: JSON.stringify(updateDoc),
     }).done(function(data) {
+      $(ev.target).prop('disabled', false);
       data = JSON.parse(data);
       console.log(data);
       if (data["status"] != "OK") {
@@ -661,8 +682,8 @@ $('#contactsModal').on('show.bs.modal', function (event) {
       }
     });
   }
-
   $("#contactsModalSaveButton").click(saveFn);
+
   var deleteFn = function() {
     $.ajax({
       type: 'delete',

@@ -398,40 +398,28 @@
       });
     }
 
-    if (campaign) {
-      $('input[name="name"]').val(campaign['name']);
-      $('select[name="type"] option[value="' + campaign['type'] + '"]').prop('selected', true);
-      if (campaign['billingOwner']) {
-        var billingOwner = users[campaign['billingOwner']];
-        $('input[name="billingOwner"]').
-          val(billingOwner['email']).
-          data('userid', billingOwner['_id'])
-      }
-      if (campaign['owners']) {
-        campaign['owners'].forEach(function(owner) {
-          var listItem = $(ownerListItemTemplate(users[owner]));
-          listItem.find("button").click(onRemoveOwner);
-          $("#ownersList").append(listItem);
-        });
-      }
+    $('input[name="name"]').val(campaign['name']);
+    $('select[name="type"] option[value="' + campaign['type'] + '"]').prop('selected', true);
+    if (campaign['billingOwner']) {
+      var billingOwner = users[campaign['billingOwner']];
+      $('input[name="billingOwner"]').
+        val(billingOwner['email']).
+        data('userid', billingOwner['_id'])
+    }
+    if (campaign['owners']) {
+      campaign['owners'].forEach(function(owner) {
+        var listItem = $(ownerListItemTemplate(users[owner]));
+        listItem.find("button").click(onRemoveOwner);
+        $("#ownersList").append(listItem);
+      });
+    }
 
-      if (campaign['phoneNumbers']) {
-        campaign['phoneNumbers'].forEach(function(n) {
-          var phoneListItem = $(phoneListItemTemplate({phoneNumber: n}));
-          phoneListItem.find("button").click(onRemovePhoneNumber);
-          $("#phoneNumbersList").append(phoneListItem);
-        });
-      }
-
-      if (!campaign['isAdmin']) {
-        $(".cyr-protected-section").remove();
-      }
-    } else {
-      var listItem = ownerListItemTemplate(users[loggedInUser]);
-      $("#ownersList").append(listItem);
-      var billingOwner = $('input[name="billingOwner"]');
-      billingOwner.val(users[loggedInUser]['email']);
-      billingOwner.data('userid', loggedInUser)
+    if (campaign['phoneNumbers']) {
+      campaign['phoneNumbers'].forEach(function(n) {
+        var phoneListItem = $(phoneListItemTemplate({phoneNumber: n}));
+        phoneListItem.find("button").click(onRemovePhoneNumber);
+        $("#phoneNumbersList").append(phoneListItem);
+      });
     }
 
     var resolveUser = function(email, cb) {
@@ -478,167 +466,165 @@
     });
 
 
-    if ((campaign && campaign['isAdmin']) || !campaign) {
-      $("#saveButton").click(function(ev) {
-        var owners = [];
-        $("#ownersList li").each(function(index) {
-          owners.push($(this).data('userid'));
-        });
+    $("#saveButton").click(function(ev) {
+      var owners = [];
+      $("#ownersList li").each(function(index) {
+        owners.push($(this).data('userid'));
+      });
 
-        var updateDoc = Object.assign(campaign || {}, {
-          'name': $('input[name="name"]').val(),
-          'type': $('select[name="type"]').val(),
-          'billingOwner': $('input[name="billingOwner"]').data('userid'),
-          'owners': owners
+      var updateDoc = Object.assign(campaign || {}, {
+        'name': $('input[name="name"]').val(),
+        'type': $('select[name="type"]').val(),
+        'billingOwner': $('input[name="billingOwner"]').data('userid'),
+        'owners': owners
+      });
+
+      $.ajax({
+        type: 'put',
+        url: '/api/campaigns',
+        contentType: 'application/json',
+        data: JSON.stringify(updateDoc),
+      }).done(function(data) {
+        data = JSON.parse(data);
+        if (data["status"] != "OK") {
+          showAlert("danger", data["error_message"]);
+        } else {
+          if (!campaign) {
+            showAlert("success",
+              `<strong>Campaign successfully saved!</strong>
+              <p>Before you can use your campaign, you need to set up billing!</p>`);
+          } else {
+            showAlert("success",
+              `<strong>Campaign successfully saved!</strong>`);
+          }
+          updateDoc['_id'] = data['result'];
+          campaign = updateDoc;
+        }
+      });
+    });
+    $("#updateBillingButton").click(function(ev) {
+      var form = $("#billingForm");
+      if (!campaign) {
+        showAlert("danger",
+            "You must save and create this campaign before setting up billing",
+            function(elem) { form.after(elem) });
+        return;
+
+      }
+      var stripeResponseHandler = function(status, response) {
+        if (response.error) {
+          showAlert("danger", response.error.message, function(elem) { form.before(elem); });
+          return;
+        }
+
+        var updatePayload = JSON.stringify({
+          'campaign': campaign['_id'],
+          'token': response.id,
         });
 
         $.ajax({
-          type: 'put',
-          url: '/api/campaigns',
+          type: 'post',
+          url: '/api/setStripeToken',
           contentType: 'application/json',
-          data: JSON.stringify(updateDoc),
+          data: updatePayload
         }).done(function(data) {
           data = JSON.parse(data);
           if (data["status"] != "OK") {
-            showAlert("danger", data["error_message"]);
+            showAlert("danger", data['error_message'], function(elem) { form.after(elem); });
           } else {
-            if (!campaign) {
+            if (campaign['phoneNumbers'].length == 0) {
               showAlert("success",
-                `<strong>Campaign successfully saved!</strong>
-                <p>Before you can use your campaign, you need to set up billing!</p>`);
+                `<strong>Billing successfully saved!</strong>
+                <p>Before you can use your campaign, you need to set up at least one phone
+                   number!</p>`,
+                function(elem) { form.after(elem); });
             } else {
               showAlert("success",
-                `<strong>Campaign successfully saved!</strong>`);
+                `<strong>Billing successfully saved!</strong>`,
+                function(elem) { form.after(elem); });
             }
-            updateDoc['_id'] = data['result'];
-            campaign = updateDoc;
           }
         });
-      });
-      $("#updateBillingButton").click(function(ev) {
-        var form = $("#billingForm");
-        if (!campaign) {
-          showAlert("danger",
-              "You must save and create this campaign before setting up billing",
-              function(elem) { form.after(elem) });
-          return;
+      };
 
+      Stripe.card.createToken(form, stripeResponseHandler);
+    });
+
+    $("#buyPhoneNumber").click(function(ev) {
+      ev.preventDefault();
+      var form = $("#buyPhoneNumberForm");
+      if (!campaign) {
+        showAlert("danger",
+            "You must save and create this campaign before buying any phone numbers",
+            function(elem) { form.after(elem) });
+        return;
+      }
+      var reqDoc = {
+        contains: form.find('input[name="contains"]').val(),
+        areaCode: form.find('input[name="areaCode"]').val(),
+        tollFree: form.find('input[name="tollFree"]').prop('checked'),
+        campaignId: campaign['_id'],
+      };
+      $.getJSON('/api/buyPhoneNumber', reqDoc, function(data) {
+        if (data['status'] == 'OK') {
+          var phoneListItem = $(phoneListItemTemplate({phoneNumber: data['result']}));
+          phoneListItem.find("button").click(onRemovePhoneNumber);
+          $("#phoneNumbersList").append(phoneListItem);
+        } else {
+          showAlert("danger", data['error_message'], function(elem) { form.after(elem) });
         }
-        var stripeResponseHandler = function(status, response) {
-          if (response.error) {
-            showAlert("danger", response.error.message, function(elem) { form.before(elem); });
+      });
+    });
+
+    $("#serviceAccountsList").replaceWith(serviceAccountsListTemplate({
+      serviceAccounts: serviceAccounts}));
+
+    $("#newServiceAccount").click(function(ev) {
+      ev.preventDefault();
+      var parentDiv = $(this).parent();
+      var confirmAlert = showAlert('info',
+          `<h4>Create A Service Account</h4>
+          <p>Enter a note to describe what this service account will be used for.</p>
+          <p><input name="serviceAccountNote" class="form-control" type="text"></p>
+          <p>
+            <button type="button"
+                    class="btn btn-success"
+                    id="newServiceAccountConfirm">
+              Create
+            </button>
+          </p>`,
+          function(e) { parentDiv.after(e) });
+      confirmAlert.find('#newServiceAccountConfirm').click(function(ev) {
+        ev.preventDefault();
+        confirmAlert.alert('close');
+        var confirmButton = $(this);
+        confirmButton.prop('disabled', true);
+
+        var noteText = confirmAlert.find('input[name="serviceAccountNote"]').val();
+
+        $.ajax({
+          type: 'post',
+          url: '/api/serviceAccounts',
+          contentType: 'application/json',
+          data: JSON.stringify({
+            'campaign': campaign['_id'],
+            'note': noteText,
+          }),
+        }).done(function(data) {
+          data = JSON.parse(data)
+          if (data['status'] == 'FAIL') {
+            showAlert("danger",
+              "Error creating service account! " + data['error_message'],
+              function(e) { parentDiv.after(e) });
             return;
           }
-
-          var updatePayload = JSON.stringify({
-            'campaign': campaign['_id'],
-            'token': response.id,
-          });
-
-          $.ajax({
-            type: 'post',
-            url: '/api/setStripeToken',
-            contentType: 'application/json',
-            data: updatePayload
-          }).done(function(data) {
-            data = JSON.parse(data);
-            if (data["status"] != "OK") {
-              showAlert("danger", data['error_message'], function(elem) { form.after(elem); });
-            } else {
-              if (campaign['phoneNumbers'].length == 0) {
-                showAlert("success",
-                  `<strong>Billing successfully saved!</strong>
-                  <p>Before you can use your campaign, you need to set up at least one phone
-                     number!</p>`,
-                  function(elem) { form.after(elem); });
-              } else {
-                showAlert("success",
-                  `<strong>Billing successfully saved!</strong>`,
-                  function(elem) { form.after(elem); });
-              }
-            }
-          });
-        };
-
-        Stripe.card.createToken(form, stripeResponseHandler);
-      });
-
-      $("#buyPhoneNumber").click(function(ev) {
-        ev.preventDefault();
-        var form = $("#buyPhoneNumberForm");
-        if (!campaign) {
-          showAlert("danger",
-              "You must save and create this campaign before buying any phone numbers",
-              function(elem) { form.after(elem) });
-          return;
-        }
-        var reqDoc = {
-          contains: form.find('input[name="contains"]').val(),
-          areaCode: form.find('input[name="areaCode"]').val(),
-          tollFree: form.find('input[name="tollFree"]').prop('checked'),
-          campaignId: campaign['_id'],
-        };
-        $.getJSON('/api/buyPhoneNumber', reqDoc, function(data) {
-          if (data['status'] == 'OK') {
-            var phoneListItem = $(phoneListItemTemplate({phoneNumber: data['result']}));
-            phoneListItem.find("button").click(onRemovePhoneNumber);
-            $("#phoneNumbersList").append(phoneListItem);
-          } else {
-            showAlert("danger", data['error_message'], function(elem) { form.after(elem) });
-          }
+          var newAccount = data['result'];
+          serviceAccounts[newAccount['_id']] = newAccount;
+          $("#serviceAccountsList").replaceWith(serviceAccountsListTemplate({
+            serviceAccounts: serviceAccounts }));
         });
       });
-
-      $("#serviceAccountsList").replaceWith(serviceAccountsListTemplate({
-        serviceAccounts: serviceAccounts}));
-
-      $("#newServiceAccount").click(function(ev) {
-        ev.preventDefault();
-        var parentDiv = $(this).parent();
-        var confirmAlert = showAlert('info',
-            `<h4>Create A Service Account</h4>
-            <p>Enter a note to describe what this service account will be used for.</p>
-            <p><input name="serviceAccountNote" class="form-control" type="text"></p>
-            <p>
-              <button type="button"
-                      class="btn btn-success"
-                      id="newServiceAccountConfirm">
-                Create
-              </button>
-            </p>`,
-            function(e) { parentDiv.after(e) });
-        confirmAlert.find('#newServiceAccountConfirm').click(function(ev) {
-          ev.preventDefault();
-          confirmAlert.alert('close');
-          var confirmButton = $(this);
-          confirmButton.prop('disabled', true);
-
-          var noteText = confirmAlert.find('input[name="serviceAccountNote"]').val();
-
-          $.ajax({
-            type: 'post',
-            url: '/api/serviceAccounts',
-            contentType: 'application/json',
-            data: JSON.stringify({
-              'campaign': campaign['_id'],
-              'note': noteText,
-            }),
-          }).done(function(data) {
-            data = JSON.parse(data)
-            if (data['status'] == 'FAIL') {
-              showAlert("danger",
-                "Error creating service account! " + data['error_message'],
-                function(e) { parentDiv.after(e) });
-              return;
-            }
-            var newAccount = data['result'];
-            serviceAccounts[newAccount['_id']] = newAccount;
-            $("#serviceAccountsList").replaceWith(serviceAccountsListTemplate({
-              serviceAccounts: serviceAccounts }));
-          });
-        });
-      });
-    }
+    });
 
     $("#serviceAccountModal").on("show.bs.modal", function(ev) {
       var link = $(ev.relatedTarget);
